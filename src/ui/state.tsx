@@ -21,9 +21,10 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { RecalcRegister, emptyRecalcRegister } from '../core/recalc';
+import { seededRecalcRegister } from '../core/seed';
 import { FIRST_STEP, resolveScreen } from './nav';
 
-const STORE = 'aro-recalc-v2';
+const STORE = 'aro-recalc-v3';
 
 /** The default year end for a new register — a March year end, as the client's. */
 const DEFAULT_FY_END = '2026-03-31';
@@ -47,6 +48,8 @@ export interface LogEntry {
 export interface UiState {
   screen: string;
   userName: string;
+  /** Obligation opened on Variance / accretion via Explain. */
+  inspectId: string;
 }
 
 export interface AppState {
@@ -63,11 +66,11 @@ interface Persisted {
 }
 
 function initialState(): AppState {
-  return { engagement: '', reg: emptyRecalcRegister(DEFAULT_FY_END), log: [] };
+  return { engagement: '', reg: seededRecalcRegister(DEFAULT_FY_END), log: [] };
 }
 
 function initialUi(): UiState {
-  return { screen: FIRST_STEP, userName: '' };
+  return { screen: FIRST_STEP, userName: '', inspectId: '' };
 }
 
 /**
@@ -85,8 +88,6 @@ function load(): Persisted {
     if (!raw) return fresh;
     const blob = JSON.parse(raw) as Partial<Persisted> & Partial<AppState>;
     if (!blob || typeof blob !== 'object') return fresh;
-    // Tolerate the flat shape this file wrote before the UI slice existed: the
-    // register itself is unchanged, so there is nothing to reinterpret.
     const d = (blob.state ?? blob) as Partial<AppState>;
     if (!d.reg || !Array.isArray(d.reg.rows)) return fresh;
     const u = (blob.ui ?? {}) as Partial<UiState>;
@@ -99,10 +100,10 @@ function load(): Persisted {
       ui: {
         screen: resolveScreen(typeof u.screen === 'string' ? u.screen : ''),
         userName: typeof u.userName === 'string' ? u.userName : '',
+        inspectId: typeof u.inspectId === 'string' ? u.inspectId : '',
       },
     };
   } catch {
-    // Private window, storage disabled, or a corrupt blob. Start clean.
     return fresh;
   }
 }
@@ -115,8 +116,10 @@ export interface Store {
   /** Move around, or say who is signing. Never logged — it changes no figure. */
   setUi: (next: Partial<UiState>) => void;
   setEngagement: (name: string) => void;
-  /** Clear everything, including the log. Asks first, at the call site. */
+  /** Empty the register. Asks first, at the call site. */
   reset: () => void;
+  /** Restore the three demo obligations. */
+  resetToSeed: () => void;
   /** True when the last persist failed — the screen says so rather than lying. */
   storageBlocked: boolean;
 }
@@ -132,8 +135,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORE, JSON.stringify({ state, ui }));
       setBlocked(false);
     } catch {
-      // Over quota, or storage is unavailable. The tool keeps working in
-      // memory; the header says the work will not survive a reload.
       setBlocked(true);
     }
   }, [state, ui]);
@@ -173,14 +174,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* nothing persisted to clear */
     }
-    // The user name survives a reset. It identifies the person at the keyboard,
-    // not the engagement, and asking them to type it again teaches nothing.
-    setAll((s) => ({ state: initialState(), ui: { ...initialUi(), userName: s.ui.userName } }));
+    setAll((s) => ({
+      state: { engagement: '', reg: emptyRecalcRegister(DEFAULT_FY_END), log: [] },
+      ui: { ...initialUi(), userName: s.ui.userName },
+    }));
+  }, []);
+
+  const resetToSeed = useCallback(() => {
+    try {
+      localStorage.removeItem(STORE);
+    } catch {
+      /* nothing persisted to clear */
+    }
+    setAll((s) => ({
+      state: {
+        engagement: s.state.engagement,
+        reg: seededRecalcRegister(DEFAULT_FY_END),
+        log: [{ at: new Date().toISOString(), action: 'Reset to seed', detail: '' }],
+      },
+      ui: { ...initialUi(), userName: s.ui.userName },
+    }));
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ state, ui, set, setUi, setEngagement, reset, storageBlocked }),
-    [state, ui, set, setUi, setEngagement, reset, storageBlocked],
+    () => ({ state, ui, set, setUi, setEngagement, reset, resetToSeed, storageBlocked }),
+    [state, ui, set, setUi, setEngagement, reset, resetToSeed, storageBlocked],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

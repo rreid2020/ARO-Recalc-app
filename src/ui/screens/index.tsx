@@ -17,14 +17,24 @@ import {
   RecalcVariance,
   Recalculation,
 } from './recalc';
+import {
+  RecalcAccretion,
+  RecalcAssumptions,
+  RecalcAudit,
+  RecalcRaw,
+} from './recalcMore';
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
   'recalc-import': RecalcImport,
   'recalc-source': RecalcSource,
   recalculation: Recalculation,
+  'recalc-accretion': RecalcAccretion,
   'recalc-compare': RecalcCompare,
   'recalc-exceptions': RecalcExceptions,
   'recalc-variance': RecalcVariance,
+  'recalc-audit': RecalcAudit,
+  'recalc-assumptions': RecalcAssumptions,
+  'recalc-raw': RecalcRaw,
 };
 
 export function Screen({ screen }: { screen: string }) {

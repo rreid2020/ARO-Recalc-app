@@ -117,6 +117,7 @@ a:hover { color: var(--color-accent-700); }
 .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
 .input:disabled { opacity: 0.55; cursor: not-allowed; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table .input { min-height: 26px; padding: 2px 6px; font-size: 12px; }
 
 /* — layout blocks — */
 .block { border-top: 2px solid var(--color-divider); padding-top: var(--space-3); }

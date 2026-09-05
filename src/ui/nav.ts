@@ -1,12 +1,7 @@
 /**
- * The six steps of a recalculation — SCREENS.md, "Layout pattern".
- *
- * The ARO Suite runs 26 steps in five phases because a module of record has to
- * carry an obligation from scoping to disclosure. Mode 1 does not own anything:
- * it reads somebody else's extracts, prices them again, and says by how much
- * the two answers differ. That is six steps in three phases, and they are the
- * Suite's own — same ids, same labels, same purposes — so a firm running both
- * reads one vocabulary.
+ * The ten steps of a recalculation — the original calculator's workflow,
+ * labelled in the ARO Suite's vocabulary so a firm running both reads one
+ * language.
  *
  * The ids are load-bearing beyond the sidebar: `exceptions()` in
  * `core/recalc.ts` names the step that resolves each exception, and the
@@ -45,10 +40,17 @@ export const STEPS: StepDef[] = [
   /* ── Measure ──────────────────────────────────────────────────────────── */
   {
     id: 'recalculation',
-    label: 'Recalculation',
+    label: 'Calculation results',
     phase: 'Measure',
     purpose:
       'The independent recalculation, obligation by obligation: the cost estimate escalated to the year end, escalated again to settlement, then discounted back at the rate the curve gives for the rounded term. Open a row for the same calculation written as Excel — paste the column into a blank sheet and every figure here reproduces, unaided.',
+  },
+  {
+    id: 'recalc-accretion',
+    label: 'Results & accretion',
+    phase: 'Measure',
+    purpose:
+      'The discount unwinding from the recalculated present value to the future value at settlement, period by period, so the two figures can be seen to be the same measurement at different dates.',
   },
   {
     id: 'recalc-compare',
@@ -73,10 +75,31 @@ export const STEPS: StepDef[] = [
     purpose:
       'Why one obligation differs from what the source system reported, in two steps that sum to the variance exactly. The source publishes three figures and none of its assumptions, so its rates are back-solved over the recalculated terms — an implied rate absorbs everything in its leg, which is why the FV variance is reported separately.',
   },
+  {
+    id: 'recalc-audit',
+    label: 'Audit trail',
+    phase: 'Assure',
+    purpose:
+      'Every write to the register, newest first. An auditor can see what changed and when, then reproduce the calculation as it stood.',
+  },
+  {
+    id: 'recalc-assumptions',
+    label: 'Assumptions library',
+    phase: 'Assure',
+    purpose:
+      'Inflation and the FY year end are set once and apply to every obligation. The discount rate is looked up on the curve at each obligation\'s term, rounded up to the next whole year — the source system\'s own convention.',
+  },
+  {
+    id: 'recalc-raw',
+    label: 'Raw dataset',
+    phase: 'Assure',
+    purpose:
+      'The register as stored, per obligation, with CSV, JSON and Excel exports. Inflation, the year end and the curve live in the assumptions library, not on the rows.',
+  },
 ];
 
-/** The step a fresh register opens on. */
-export const FIRST_STEP = STEPS[0].id;
+/** A fresh register opens on the calculation, as the original tool did. */
+export const FIRST_STEP = 'recalculation';
 
 export function stepById(id: string): StepDef | undefined {
   return STEPS.find((s) => s.id === id);

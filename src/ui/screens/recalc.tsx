@@ -1,9 +1,10 @@
 /**
  * Mode 1 — recalculation & completeness.
  *
- * Six screens over one register: import the source system's extracts,
- * inspect them as they were read, recalculate, compare, clear the exceptions
- * and conclude on the variance.
+ * Ten screens over one register: import the source system's extracts,
+ * inspect them as they were read, recalculate, walk the accretion, compare,
+ * clear the exceptions, conclude on the variance, then the audit trail,
+ * the assumptions library and the raw dataset.
  *
  * The prototype hand-rolled a column-filter panel, a sort menu and a pager for
  * its register. None of that is ported: `SheetTable` already does all three,
@@ -40,7 +41,6 @@ import { money, parseNumber } from '../../core/format';
 import {
   RecalcRow,
   accretionSchedule,
-  curveMaxTerm,
   recalcBridge,
   recalcCurveTerm,
   recalculate,
@@ -415,102 +415,219 @@ export function RecalcSource() {
 
 export function Recalculation() {
   const { reg, set, engagement } = useRegister();
+  const { setUi } = useStore();
   const a = assumptionsOf(reg);
   const curve = curveInForce(reg);
   const totals = useMemo(() => portfolioTotals(reg), [reg]);
+  const [openId, setOpenId] = useState('');
+  const [q, setQ] = useState('');
+  const [only, setOnly] = useState<'all' | 'variance' | 'pass' | 'nosap'>('all');
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const dv = (key: string, committed: string) => draft[key] ?? committed;
   const commit = (key: string) => setDraft((d) => { const n = { ...d }; delete n[key]; return n; });
 
+  const patch = (id: string, next: Partial<RecalcRow>, action: string) => {
+    set(action, { rows: reg.rows.map((r) => (r.id === id ? { ...r, ...next } : r)) }, id);
+  };
+
+  const add = () => {
+    const y = new Date(`${reg.fyEnd}T00:00:00Z`);
+    y.setUTCFullYear(y.getUTCFullYear() + 10);
+    const id = `NEW-${reg.rows.length + 1}`;
+    set('Add obligation', {
+      rows: [...reg.rows, {
+        id,
+        cost: 0,
+        costEstimateDate: reg.fyEnd,
+        settlementDate: y.toISOString().slice(0, 10),
+        rateOverride: null,
+        sourceFv: null,
+        sourcePv: null,
+      }],
+    }, id);
+    setOpenId(id);
+  };
+
   const exportBook = () => {
     const at = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-    // An unnamed engagement still exports — the workbook is self-contained and
-    // carries its own provenance. It just does not get to borrow a name it has
-    // not been given.
     const stem = engagement.trim().replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'ARO';
     download(`${stem}-recalculation-${reg.fyEnd}.xlsx`, recalcWorkbook(reg, at));
   };
 
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return reg.rows.filter((r) => {
+      if (needle && !r.id.toLowerCase().includes(needle)) return false;
+      const s = sourceFigures(r);
+      const k = recalculate(r, a, curve);
+      const flag = s.has ? varianceFlag(s.pv - k.pv, s.pv, reg.materiality) : 'NOSAP';
+      if (only === 'variance') return flag === 'VARIANCE';
+      if (only === 'pass') return flag === 'PASS';
+      if (only === 'nosap') return !s.has;
+      return true;
+    });
+  }, [reg, q, only, a, curve]);
+
+  const cell = { minHeight: 26, padding: '2px 6px', fontSize: 12 } as const;
+
   return (
-    <>
-      <Block kicker="Assumptions" title="What the recalculation runs on"
-        note="One inflation rate across the population, and the discount rate read off the curve at the term rounded up to the next whole year — the source system's own convention, reproduced rather than corrected.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-          <Field label="FY year end" hint="The valuation date every term is measured from.">
-            <input value={dv('fyEnd', reg.fyEnd)}
-              onChange={(e) => setDraft((d) => ({ ...d, fyEnd: e.target.value }))}
-              onBlur={(e) => { commit('fyEnd'); if (e.target.value !== reg.fyEnd) set('Set FY year end', { fyEnd: e.target.value }); }} />
-          </Field>
-          <Field label="Inflation / escalation %" hint="Applied to both escalation legs.">
-            <input value={dv('infl', (reg.inflation * 100).toFixed(2))}
-              onChange={(e) => setDraft((d) => ({ ...d, infl: e.target.value }))}
-              onBlur={(e) => { commit('infl'); set('Set inflation rate', { inflation: parseNumber(e.target.value) / 100 }); }} />
-          </Field>
-          <Field label="Curve" hint={reg.curveSource || 'Built-in FY26 curve'}>
-            <input value={`${curve.asAt} · ${curve.points.length} terms to ${curveMaxTerm(curve)} yrs`} readOnly />
-          </Field>
-        </div>
-      </Block>
+    <Block
+      kicker="Calculation results"
+      title={`${num(totals.count)} obligation${totals.count === 1 ? '' : 's'} in scope`}
+      note="Load REP04 for cost estimates and cost estimate dates, REP06 for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms DAYS360/360."
+      actions={<button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Export to Excel (with formulas)</button>}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <button className="btn btn-ghost btn-sm" onClick={add}>+ Add obligation</button>
+        <input
+          className="input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Filter by obligation no."
+          style={{ width: 220, minHeight: 32, fontSize: 12, padding: '4px 8px' }}
+        />
+        <select className="input" value={only} onChange={(e) => setOnly(e.target.value as typeof only)} style={{ width: 'auto', minHeight: 32, fontSize: 12, padding: '2px 6px' }}>
+          <option value="all">All obligations</option>
+          <option value="variance">Variances only</option>
+          <option value="pass">Passing only</option>
+          <option value="nosap">No source data</option>
+        </select>
+        <span className="muted" style={{ fontSize: 11.5, fontVariantNumeric: 'tabular-nums' }}>
+          {num(shown.length)} of {num(reg.rows.length)}
+        </span>
+      </div>
 
-      <Block kicker="Recalculation" title={`${num(totals.count)} obligation${totals.count === 1 ? '' : 's'}`}
-        note="Open a row for the same calculation written as Excel. Paste that column into A1 of a blank sheet and every figure in the row reproduces — each formula references the rows above it, exactly as the chain chains its steps."
-        actions={<button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Export workbook</button>}>
-        <Stats items={[
-          { label: 'Cost estimate at FY end', value: money(totals.cce) },
-          { label: 'FV at settlement', value: money(totals.fv) },
-          { label: 'PV at FY year end', value: money(totals.pv) },
-          { label: 'Compared', value: `${num(totals.covered)} of ${num(totals.count)}` },
-        ]} />
-
-        {!reg.rows.length ? (
-          <Empty>
-            The register is empty. Import a REP04 extract on Source extracts — it carries the cost estimates and the
-            cost estimate dates every other figure is built from.
-          </Empty>
-        ) : (
-          <SheetTable
-            rows={reg.rows}
-            rowKey={(r) => `${r.id}-${r.costEstimateDate}-${r.settlementDate}`}
-            noun="obligations"
-            expand={(r) => <FormulaPanel row={r} reg={reg} />}
-            columns={[
-              { key: 'id', header: 'Obligation', value: (r) => r.id, cell: (r) => <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800 }}>{r.id}</span> },
-              { key: 'pk', header: 'Cost est. date', kind: 'date', value: (r) => r.costEstimateDate, cell: (r) => r.costEstimateDate || <Tag kind="bad">missing</Tag> },
-              { key: 'st', header: 'Settlement', kind: 'date', value: (r) => r.settlementDate, cell: (r) => r.settlementDate || <Tag kind="bad">missing</Tag> },
-              { key: 'term', header: 'Term', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).tD, cell: (r) => recalculate(r, a, curve).tD.toFixed(2) },
-              { key: 'curveT', header: 'Curve term', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).curveTerm, cell: (r) => {
-                const k = recalculate(r, a, curve);
-                return <>{k.curveTerm}{k.beyond && <> <Tag kind="warn">capped</Tag></>}</>;
-              } },
-              { key: 'rate', header: 'Discount %', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).rate, cell: (r) => {
-                const k = recalculate(r, a, curve);
-                return <span style={k.overridden ? { color: 'var(--color-accent)' } : undefined}>{ratePct(k.rate)}</span>;
-              } },
-              { key: 'cost', header: 'Cost est. (REP04)', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.cost, cell: (r) => r.cost ? money(r.cost) : <Tag kind="bad">none</Tag> },
-              { key: 'cce', header: 'At FY end', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).cce, cell: (r) => money(recalculate(r, a, curve).cce) },
-              { key: 'fv', header: 'FV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).fv, cell: (r) => money(recalculate(r, a, curve).fv) },
-              { key: 'pv', header: 'PV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).pv, cell: (r) => <strong>{money(recalculate(r, a, curve).pv)}</strong> },
-            ]}
-          />
-        )}
-      </Block>
-    </>
+      {!reg.rows.length ? (
+        <Empty>
+          The register is empty. Import a REP04 extract on Source extracts — it carries the cost estimates and the
+          cost estimate dates every other figure is built from — or reset to seed from the sidebar.
+        </Empty>
+      ) : (
+        <SheetTable
+          rows={shown}
+          rowKey={(r) => `${r.id}-${r.costEstimateDate}-${r.settlementDate}`}
+          noun="obligations"
+          expand={(r) => openId === r.id ? <FormulaPanel row={r} reg={reg} /> : null}
+          groupHeader={
+            <tr>
+              <th colSpan={5} style={{ borderRight: '2px solid var(--color-divider)' }}>Re-calculation inputs</th>
+              <th colSpan={5} style={{ borderRight: '2px solid var(--color-divider)' }}>Re-calculated</th>
+              <th colSpan={3} style={{ borderRight: '2px solid var(--color-divider)', color: 'var(--color-accent)' }}>Per source ARO report</th>
+              <th colSpan={4}>Variance</th>
+            </tr>
+          }
+          columns={[
+            {
+              key: 'id', header: 'Obligation', value: (r) => r.id,
+              cell: (r) => (
+                <input className="input" value={dv(`id:${r.id}`, r.id)} style={{ ...cell, width: 88, fontFamily: 'var(--font-heading)', fontWeight: 800 }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`id:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => { commit(`id:${r.id}`); if (e.target.value !== r.id) patch(r.id, { id: e.target.value }, 'Rename obligation'); }} />
+              ),
+            },
+            {
+              key: 'pk', header: 'Cost est. date', kind: 'date', value: (r) => r.costEstimateDate,
+              cell: (r) => (
+                <input className="input" value={dv(`pk:${r.id}`, r.costEstimateDate)} style={{ ...cell, width: 132, fontVariantNumeric: 'tabular-nums' }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`pk:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => { commit(`pk:${r.id}`); if (e.target.value !== r.costEstimateDate) patch(r.id, { costEstimateDate: e.target.value }, 'Set cost estimate date'); }} />
+              ),
+            },
+            {
+              key: 'st', header: 'Settlement', kind: 'date', value: (r) => r.settlementDate,
+              cell: (r) => (
+                <input className="input" value={dv(`st:${r.id}`, r.settlementDate)} style={{ ...cell, width: 132, fontVariantNumeric: 'tabular-nums' }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`st:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => { commit(`st:${r.id}`); if (e.target.value !== r.settlementDate) patch(r.id, { settlementDate: e.target.value }, 'Set settlement date'); }} />
+              ),
+            },
+            { key: 'infl', header: 'Infl %', kind: 'number', thClassName: 'num', tdClassName: 'num muted', value: () => a.inflation, cell: () => (a.inflation * 100).toFixed(2) },
+            { key: 'rate', header: 'Disc %', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).rate, cell: (r) => {
+              const k = recalculate(r, a, curve);
+              return <span style={k.overridden ? { color: 'var(--color-accent)' } : undefined}>{ratePct(k.rate)}</span>;
+            } },
+            { key: 'term', header: 'Term', kind: 'number', thClassName: 'num', tdClassName: 'num muted', value: (r) => recalculate(r, a, curve).tD, cell: (r) => recalculate(r, a, curve).tD.toFixed(2) },
+            { key: 'curveT', header: 'Curve', kind: 'number', thClassName: 'num', tdClassName: 'num muted', value: (r) => recalculate(r, a, curve).curveTerm, cell: (r) => {
+              const k = recalculate(r, a, curve);
+              return <>{k.curveTerm}{k.beyond && <> <Tag kind="warn">capped</Tag></>}</>;
+            } },
+            { key: 'cce', header: 'Cost est. at FY end', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).cce, cell: (r) => money(recalculate(r, a, curve).cce) },
+            { key: 'fv', header: 'FV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).fv, cell: (r) => money(recalculate(r, a, curve).fv) },
+            { key: 'pv', header: 'PV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).pv, cell: (r) => <strong>{money(recalculate(r, a, curve).pv)}</strong> },
+            {
+              key: 'cost', header: 'Cost est. (REP04)', kind: 'number', thClassName: 'num', value: (r) => r.cost,
+              cell: (r) => (
+                <input className="input" value={dv(`cost:${r.id}`, r.cost ? String(r.cost) : '')} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`cost:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => { commit(`cost:${r.id}`); patch(r.id, { cost: parseNumber(e.target.value) }, 'Set cost estimate'); }} />
+              ),
+            },
+            {
+              key: 'sapFv', header: 'FV (REP06)', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).fv,
+              cell: (r) => (
+                <input className="input" value={dv(`sfv:${r.id}`, r.sourceFv == null ? '' : String(r.sourceFv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`sfv:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => {
+                    commit(`sfv:${r.id}`);
+                    const raw = e.target.value.trim();
+                    patch(r.id, { sourceFv: raw === '' ? null : parseNumber(raw) }, 'Set reported FV');
+                  }} />
+              ),
+            },
+            {
+              key: 'sapPv', header: 'PV (REP06)', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).pv,
+              cell: (r) => (
+                <input className="input" value={dv(`spv:${r.id}`, r.sourcePv == null ? '' : String(r.sourcePv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  onChange={(e) => setDraft((d) => ({ ...d, [`spv:${r.id}`]: e.target.value }))}
+                  onBlur={(e) => {
+                    commit(`spv:${r.id}`);
+                    const raw = e.target.value.trim();
+                    patch(r.id, { sourcePv: raw === '' ? null : parseNumber(raw) }, 'Set reported PV');
+                  }} />
+              ),
+            },
+            { key: 'dFv', header: 'Δ FV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => sourceFigures(r).has ? sourceFigures(r).fv - recalculate(r, a, curve).fv : 0, cell: (r) => sourceFigures(r).has ? signed(sourceFigures(r).fv - recalculate(r, a, curve).fv) : <span className="muted">—</span> },
+            { key: 'dPv', header: 'Δ PV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => sourceFigures(r).has ? sourceFigures(r).pv - recalculate(r, a, curve).pv : 0, cell: (r) => sourceFigures(r).has ? <strong>{signed(sourceFigures(r).pv - recalculate(r, a, curve).pv)}</strong> : <span className="muted">—</span> },
+            { key: 'flag', header: 'FLAG', value: (r) => sourceFigures(r).has ? varianceFlag(sourceFigures(r).pv - recalculate(r, a, curve).pv, sourceFigures(r).pv, reg.materiality) : '', cell: (r) => {
+              if (!sourceFigures(r).has) return <Tag kind="warn">NO SRC</Tag>;
+              const f = varianceFlag(sourceFigures(r).pv - recalculate(r, a, curve).pv, sourceFigures(r).pv, reg.materiality);
+              return <Tag kind={f === 'VARIANCE' ? 'bad' : 'neutral'}>{f === 'VARIANCE' ? 'VARIANCE' : 'PASS'}</Tag>;
+            } },
+            { key: 'act', header: '', cell: (r) => (
+              <span style={{ whiteSpace: 'nowrap' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setOpenId((id) => id === r.id ? '' : r.id)}>
+                  {openId === r.id ? 'Hide' : 'Calc'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setUi({ screen: 'recalc-variance', inspectId: r.id })}>Explain</button>
+                <button className="btn btn-ghost btn-sm" title="Delete obligation" onClick={() => set('Delete obligation', { rows: reg.rows.filter((x) => x.id !== r.id) }, r.id)}>×</button>
+              </span>
+            ) },
+          ]}
+        />
+      )}
+    </Block>
   );
 }
 
-function FormulaPanel({ row, reg }: { row: RecalcRow; reg: RecalcRegister }) {
+export function FormulaPanel({ row, reg }: { row: RecalcRow; reg: RecalcRegister }) {
   const rows = formulasFor(row, assumptionsOf(reg), curveInForce(reg), reg.materiality);
+  const copyAll = () => {
+    void navigator.clipboard?.writeText(rows.map((f) => f.formula).join('\n'));
+  };
   return (
     <div style={{ padding: '10px 0' }}>
-      <div className="note-panel" style={{ marginBottom: 10 }}>
-        This is the calculation itself, written as Excel. Paste the formula column into A1 of a blank sheet and every
-        figure below reproduces exactly — each row references the rows above it, and every date and rate is a literal,
-        so nothing else needs wiring up.
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div className="note-panel" style={{ margin: 0, flex: 1 }}>
+          This is the calculation itself, written as Excel. Paste the formula column into A1 of a blank sheet and every
+          figure below reproduces exactly — each row references the rows above it, and every date and rate is a literal,
+          so nothing else needs wiring up.
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={copyAll}>Copy all</button>
       </div>
       <div className="scroll-x">
         <table className="table">
-          <thead><tr><th>Cell</th><th>What it computes</th><th>Formula</th><th className="num">Value</th></tr></thead>
+          <thead><tr><th>Cell</th><th>What it computes</th><th>Formula</th><th className="num">Value</th><th /></tr></thead>
           <tbody>
             {rows.map((f) => (
               <tr key={f.ref}>
@@ -518,6 +635,9 @@ function FormulaPanel({ row, reg }: { row: RecalcRow; reg: RecalcRegister }) {
                 <td style={{ maxWidth: 380 }}>{f.label}</td>
                 <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, wordBreak: 'break-all' }}>{f.formula}</td>
                 <td className="num">{f.value}</td>
+                <td>
+                  <button className="btn btn-ghost btn-sm" onClick={() => void navigator.clipboard?.writeText(f.formula)}>Copy</button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -690,9 +810,9 @@ export function RecalcVariance() {
   const curve = curveInForce(reg);
   const report = useMemo(() => exceptions(reg), [reg]);
   const compared = reg.rows.filter((r) => sourceFigures(r).has);
-  const [selId, setSelId] = useState('');
+  const [selId, setSelId] = useState(ui.inspectId);
   const signer = ui.userName;
-  const row = compared.find((r) => r.id === selId) ?? compared[0];
+  const row = compared.find((r) => r.id === selId) ?? compared.find((r) => r.id === ui.inspectId) ?? compared[0];
 
   if (!row) {
     return (
@@ -721,7 +841,7 @@ export function RecalcVariance() {
       <Block kicker="Variance & sign-off" title={`Obligation ${row.id}`}
         note="The source system publishes three figures and none of its assumptions, so its rates are back-solved over the recalculated terms. An implied rate absorbs everything in its leg — including a wrong cost estimate or a wrong date — which is why the steps are labelled by leg rather than by cause."
         actions={
-          <select value={row.id} onChange={(e) => setSelId(e.target.value)}>
+          <select value={row.id} onChange={(e) => { setSelId(e.target.value); setUi({ inspectId: e.target.value }); }}>
             {compared.map((r) => <option key={r.id} value={r.id}>Obligation {r.id}</option>)}
           </select>
         }>

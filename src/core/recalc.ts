@@ -82,12 +82,9 @@ export interface RecalcRegister {
 /**
  * A new register for a reporting unit.
  *
- * It starts empty and **seeded false with no rows**, not with illustrative
- * figures. The prototype shipped three obligations lifted from the client's
- * Master Sheet so the demo had something to show; those are real client
- * numbers, and the handoff README is explicit that none of the bundle's data
- * should ship. An empty register reads its way to the same place — the REP04
- * and REP06 blockers are open until the extracts arrive.
+ * An empty register — used by tests and by "start a new recalculation".
+ * The live tool opens on `seededRecalcRegister()` so the demo has figures
+ * to show until extracts replace them.
  */
 export function emptyRecalcRegister(fyEnd: string): RecalcRegister {
   return {
