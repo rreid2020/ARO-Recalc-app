@@ -53,7 +53,7 @@ export function Shell() {
       <nav
         style={{
           width: 244, flex: 'none',
-          background: 'var(--color-accent-900)', color: 'var(--color-bg)',
+          background: 'var(--color-accent)', color: 'var(--color-bg)',
           display: 'flex', flexDirection: 'column',
           position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
         }}

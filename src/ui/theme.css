@@ -3,7 +3,7 @@
  *
  * Flat, architectural, set entirely in Archivo, zero corner radius, strong 2px
  * rules, flush-left everything. The accent is overridden from the system red to
- * forest green #2f6b47.
+ * forest green #0e2418 — the sidebar colour, used for every accent.
  */
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
 
@@ -13,15 +13,15 @@
   --color-text: #201e1d;
   --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
 
-  --color-accent: #2f6b47;
+  --color-accent: #0e2418;
   --color-accent-100: #e8f0eb;
   --color-accent-200: #c8ddd0;
   --color-accent-300: #9dc0aa;
   --color-accent-400: #5f9575;
-  --color-accent-500: #2f6b47;
-  --color-accent-600: #275a3c;
-  --color-accent-700: #1d4630;
-  --color-accent-800: #143323;
+  --color-accent-500: #0e2418;
+  --color-accent-600: #0b1d13;
+  --color-accent-700: #08150e;
+  --color-accent-800: #050e09;
   --color-accent-900: #0e2418;
 
   --color-neutral-100: #f8f4f4;
@@ -49,7 +49,7 @@
   --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
 
   /* Status, used by dots, tags and gate rows. */
-  --ok: #2f6b47;
+  --ok: #0e2418;
   --warn: #a8730d;
   --bad: #a32b16;
 }
@@ -168,12 +168,12 @@ a:hover { color: var(--color-accent-700); }
 /* — group tones: headings, light column wash, vertical rules — */
 .g-tone { --g: #6a5e52; }
 .g-lead, .g-identity, .g-baseline { --g: #5e5956; }
-.g-opening { --g: #2f6b47; }
+.g-opening { --g: #0e2418; }
 .g-existing, .g-activity { --g: #276a78; }
 .g-new { --g: #8a6a24; }
 .g-closing { --g: #1a4534; }
 .g-aro-asset, .g-asset, .g-tca { --g: #3d5c7a; }
-.g-obligation { --g: #2f6b47; }
+.g-obligation { --g: #0e2418; }
 .g-dates { --g: #5a5470; }
 .g-calculated { --g: #3f6b48; }
 .g-movement { --g: #7a5530; }
