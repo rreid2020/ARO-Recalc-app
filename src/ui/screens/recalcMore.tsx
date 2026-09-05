@@ -276,7 +276,7 @@ export function RecalcAssumptions() {
 }
 
 export function RecalcRaw() {
-  const { reg, engagement } = useRegister();
+  const { reg } = useRegister();
   const { resetToSeed } = useStore();
   const a = assumptionsOf(reg);
   const curve = curveInForce(reg);
@@ -299,8 +299,7 @@ export function RecalcRaw() {
 
   const exportBook = () => {
     const at = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-    const stem = engagement.trim().replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'ARO';
-    download(`${stem}-recalculation-${reg.fyEnd}.xlsx`, recalcWorkbook(reg, at));
+    download(`ARO-recalculation-${reg.fyEnd}.xlsx`, recalcWorkbook(reg, at));
   };
 
   const csvCell = (v: unknown) => {

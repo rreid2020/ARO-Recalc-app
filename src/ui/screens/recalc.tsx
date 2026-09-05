@@ -414,7 +414,7 @@ export function RecalcSource() {
 /* ══ Recalculation ═════════════════════════════════════════════════════ */
 
 export function Recalculation() {
-  const { reg, set, engagement } = useRegister();
+  const { reg, set } = useRegister();
   const { setUi } = useStore();
   const a = assumptionsOf(reg);
   const curve = curveInForce(reg);
@@ -451,8 +451,7 @@ export function Recalculation() {
 
   const exportBook = () => {
     const at = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-    const stem = engagement.trim().replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'ARO';
-    download(`${stem}-recalculation-${reg.fyEnd}.xlsx`, recalcWorkbook(reg, at));
+    download(`ARO-recalculation-${reg.fyEnd}.xlsx`, recalcWorkbook(reg, at));
   };
 
   const shown = useMemo(() => {
@@ -947,7 +946,7 @@ export function RecalcVariance() {
             <div style={{ flex: '0 1 300px', minWidth: 200 }}>
               <Field
                 label="Concluded by"
-                help="The name written onto the conclusion and onto every export made after it. The tool records who reached the conclusion; it does not decide who may — that judgement belongs to the engagement, not to a calculator."
+                help="The name written onto the conclusion. The tool records who reached it; it does not decide who may."
               >
                 <input
                   className="input"

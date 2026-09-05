@@ -20,7 +20,7 @@ const signed = (n: number) => {
 };
 
 export function Shell() {
-  const { state, ui, set, setUi, setEngagement, reset, resetToSeed, storageBlocked } = useStore();
+  const { state, ui, set, setUi, reset, resetToSeed, storageBlocked } = useStore();
   const screen = resolveScreen(ui.screen);
   const step = stepById(screen)!;
   const report = exceptions(state.reg);
@@ -60,29 +60,6 @@ export function Shell() {
       >
         <div style={{ padding: '16px 18px', borderBottom: RULE }}>
           <AroWordmark />
-        </div>
-
-        <div style={{ padding: '14px 18px', borderBottom: RULE, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label htmlFor="engagement" style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.65 }}>
-            Engagement
-          </label>
-          <input
-            id="engagement"
-            className="input"
-            value={state.engagement}
-            placeholder="Entity being tested"
-            title="The entity whose figures are being recalculated. It names the export and appears on the completeness statement."
-            onChange={(e) => setEngagement(e.target.value)}
-            style={{
-              minHeight: 30, fontSize: 12, padding: '2px 6px',
-              background: 'transparent', color: 'var(--color-bg)',
-              borderColor: 'color-mix(in srgb,var(--color-bg) 40%,transparent)',
-            }}
-          />
-          <div style={{ fontSize: 10.5, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}>
-            FY end {state.reg.fyEnd} · {state.reg.rows.length.toLocaleString('en-US')} obligation
-            {state.reg.rows.length === 1 ? '' : 's'}
-          </div>
         </div>
 
         <div style={{ padding: '12px 10px 4px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -139,7 +116,7 @@ export function Shell() {
         >
           <div style={{ marginRight: 'auto', minWidth: 0 }}>
             <div style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }} className="muted">
-              {state.engagement.trim() || 'Unnamed engagement'} · {step.phase}
+              {step.phase}
             </div>
             <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
               {step.label}

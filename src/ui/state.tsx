@@ -1,11 +1,10 @@
 /**
  * The whole of this tool's state.
  *
- * One register, one engagement name, one append-only action log — held in React
- * state and persisted to `localStorage`. There is no server, no database and no
- * sign-in, which is the point: an auditor can run this on an extract they are
- * not permitted to upload anywhere, and the client's file never leaves the
- * machine.
+ * One register and one append-only action log — held in React state and
+ * persisted to `localStorage`. There is no server, no database, no sign-in and
+ * no engagement: an auditor can run this on an extract they are not permitted
+ * to upload anywhere, and the client's file never leaves the machine.
  *
  * That also sets the limits honestly. Two of the ARO Suite's invariants do not
  * and cannot apply here:
@@ -53,8 +52,6 @@ export interface UiState {
 }
 
 export interface AppState {
-  /** The entity being recalculated. Appears on the export and its filename. */
-  engagement: string;
   reg: RecalcRegister;
   /** Append-only — INVARIANTS §2. Newest first. */
   log: LogEntry[];
@@ -66,7 +63,7 @@ interface Persisted {
 }
 
 function initialState(): AppState {
-  return { engagement: '', reg: seededRecalcRegister(DEFAULT_FY_END), log: [] };
+  return { reg: seededRecalcRegister(DEFAULT_FY_END), log: [] };
 }
 
 function initialUi(): UiState {
@@ -93,7 +90,6 @@ function load(): Persisted {
     const u = (blob.ui ?? {}) as Partial<UiState>;
     return {
       state: {
-        engagement: typeof d.engagement === 'string' ? d.engagement : '',
         reg: { ...emptyRecalcRegister(DEFAULT_FY_END), ...d.reg },
         log: Array.isArray(d.log) ? d.log : [],
       },
@@ -115,7 +111,6 @@ export interface Store {
   set: (action: string, next: Partial<RecalcRegister>, detail?: string) => void;
   /** Move around, or say who is signing. Never logged — it changes no figure. */
   setUi: (next: Partial<UiState>) => void;
-  setEngagement: (name: string) => void;
   /** Empty the register. Asks first, at the call site. */
   reset: () => void;
   /** Restore the three demo obligations. */
@@ -154,20 +149,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAll((s) => ({ ...s, ui: { ...s.ui, ...next } }));
   }, []);
 
-  const setEngagement = useCallback((engagement: string) => {
-    setAll((s) => (s.state.engagement === engagement ? s : {
-      ...s,
-      state: {
-        ...s.state,
-        engagement,
-        log: [
-          { at: new Date().toISOString(), action: 'Set the engagement name', detail: engagement },
-          ...s.state.log,
-        ],
-      },
-    }));
-  }, []);
-
   const reset = useCallback(() => {
     try {
       localStorage.removeItem(STORE);
@@ -175,7 +156,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       /* nothing persisted to clear */
     }
     setAll((s) => ({
-      state: { engagement: '', reg: emptyRecalcRegister(DEFAULT_FY_END), log: [] },
+      state: { reg: emptyRecalcRegister(DEFAULT_FY_END), log: [] },
       ui: { ...initialUi(), userName: s.ui.userName },
     }));
   }, []);
@@ -188,7 +169,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     setAll((s) => ({
       state: {
-        engagement: s.state.engagement,
         reg: seededRecalcRegister(DEFAULT_FY_END),
         log: [{ at: new Date().toISOString(), action: 'Reset to seed', detail: '' }],
       },
@@ -197,8 +177,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ state, ui, set, setUi, setEngagement, reset, resetToSeed, storageBlocked }),
-    [state, ui, set, setUi, setEngagement, reset, resetToSeed, storageBlocked],
+    () => ({ state, ui, set, setUi, reset, resetToSeed, storageBlocked }),
+    [state, ui, set, setUi, reset, resetToSeed, storageBlocked],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -213,5 +193,5 @@ export function useStore(): Store {
 /** The register and a writer for it — what every screen actually wants. */
 export function useRegister() {
   const { state, set } = useStore();
-  return { reg: state.reg, set, engagement: state.engagement };
+  return { reg: state.reg, set };
 }
