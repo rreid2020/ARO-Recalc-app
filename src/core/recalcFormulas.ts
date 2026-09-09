@@ -105,8 +105,8 @@ export function formulasFor(
     ],
     ['A8', 'FV at settlement', '=A7*(1+A1)^A6', money(k.fv)],
     ['A9', 'PV at FY year end', '=A8/(1+A2)^A3', money(k.pv)],
-    ['A10', 'FV per source system (REP06)', `=${s.has ? s.fv.toFixed(2) : '0'}`, s.has ? money(s.fv) : '—'],
-    ['A11', 'PV per source system (REP06)', `=${s.has ? s.pv.toFixed(2) : '0'}`, s.has ? money(s.pv) : '—'],
+    ['A10', 'FV as reported', `=${s.has ? s.fv.toFixed(2) : '0'}`, s.has ? money(s.fv) : '—'],
+    ['A11', 'PV as reported', `=${s.has ? s.pv.toFixed(2) : '0'}`, s.has ? money(s.pv) : '—'],
     ['A12', 'FV variance (reported less re-calculated)', '=A10-A8', s.has ? signedMoney(s.fv - k.fv) : '—'],
     ['A13', 'PV variance (reported less re-calculated)', '=A11-A9', s.has ? signedMoney(s.pv - k.pv) : '—'],
     [

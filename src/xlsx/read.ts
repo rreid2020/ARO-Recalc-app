@@ -33,7 +33,11 @@ function unzip(buf: Uint8Array): Record<string, ZipEntry> {
       break;
     }
   }
-  if (end < 0) throw new Error('Not a zip file — is this really an .xlsx?');
+  if (end < 0) {
+    throw new Error(
+      'Not a zip file — this is not an Excel workbook we can read. Save it from Excel as .xlsx (Excel Workbook) and try again. Older binary .xls files are not supported.',
+    );
+  }
 
   const count = dv.getUint16(end + 10, true);
   const files: Record<string, ZipEntry> = {};
@@ -214,10 +218,11 @@ export async function readSheet(bytes: Uint8Array, opts: ReadOptions = {}): Prom
  * Find the column matching a list of keyword groups, best match first.
  *
  * Groups are tried in order of preference and every word in a group must appear
- * in the header, so `[['cost','estimate'], ['cost']]` prefers "Cost estimate
- * (REP04)" over "Cost centre" but will still settle for the latter if nothing
- * better exists. Among equally-ranked hits the shortest label wins: "Settlement
- * date" beats "Settlement date last changed by".
+ * as a whole token in the header, so `[['cost','estimate'], ['cost']]` prefers
+ * "Cost estimate (REP04)" over "Cost centre" but will still settle for the
+ * latter if nothing better exists. Tokens keep "Widget" from matching `id`.
+ * Among equally-ranked hits the shortest label wins: "Settlement date" beats
+ * "Settlement date last changed by".
  *
  * Returns -1 when nothing matches, which the import screen shows as "not found"
  * against a column picker rather than guessing.
@@ -227,8 +232,9 @@ export function findColumn(headers: SheetHeader[], groups: string[][]): number {
   let bestScore = 0;
   for (const h of headers) {
     const label = h.label.toLowerCase();
+    const tokens = label.split(/[^a-z0-9]+/).filter(Boolean);
     for (let g = 0; g < groups.length; g++) {
-      if (groups[g].every((w) => label.includes(w))) {
+      if (groups[g].every((w) => tokens.includes(w))) {
         const score = (groups.length - g) * 100 - label.length;
         if (score > bestScore) {
           bestScore = score;
@@ -244,20 +250,20 @@ export function findColumn(headers: SheetHeader[], groups: string[][]): number {
 /** The column keyword groups for each extract the recalculation tool reads. */
 export const COLUMN_HINTS = {
   rep04: {
-    id: [['obligation', 'no'], ['aro', 'obligation'], ['obligation'], ['asset', 'no']],
-    cost: [['cost', 'estimate'], ['cost']],
-    costEstimateDate: [['cost', 'estimate', 'date'], ['price', 'key'], ['valid'], ['date']],
+    id: [['obligation', 'no'], ['aro', 'obligation'], ['obligation', 'id'], ['asset', 'no'], ['asset', 'id'], ['obligation'], ['aro'], ['id']],
+    cost: [['cost', 'estimate'], ['undiscounted'], ['estimated', 'cost'], ['cost']],
+    costEstimateDate: [['cost', 'estimate', 'date'], ['estimate', 'date'], ['price', 'key'], ['cost', 'date'], ['valid'], ['date']],
   },
   rep06: {
-    id: [['obligation', 'no'], ['aro', 'obligation'], ['obligation'], ['asset', 'no']],
-    settlementDate: [['settlement', 'date'], ['settlement'], ['current', 'end', 'date'], ['end', 'date'], ['retirement', 'date']],
-    fv: [['fv', 'obligation'], ['future', 'value'], ['fv']],
+    id: [['obligation', 'no'], ['aro', 'obligation'], ['obligation', 'id'], ['asset', 'no'], ['asset', 'id'], ['obligation'], ['aro'], ['id']],
+    settlementDate: [['settlement', 'date'], ['retirement', 'date'], ['current', 'end'], ['end', 'date'], ['settlement']],
+    fv: [['fv', 'obligation'], ['fair', 'value'], ['future', 'value'], ['fv']],
     pv: [['pv', 'obligation'], ['present', 'value'], ['pv']],
   },
   curve: {
-    validOn: [['valid', 'on'], ['valid'], ['as', 'of'], ['date']],
-    term: [['term']],
-    rate: [['interest', 'rate'], ['rate']],
+    validOn: [['valid', 'on'], ['as', 'of'], ['as', 'at'], ['valid'], ['date']],
+    term: [['term', 'yrs'], ['term', 'years'], ['tenor'], ['years'], ['yrs'], ['term']],
+    rate: [['interest', 'rate'], ['yield'], ['rate']],
   },
 } as const;
 

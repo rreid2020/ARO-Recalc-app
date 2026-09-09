@@ -331,14 +331,14 @@ export function exceptions(reg: RecalcRegister): ExceptionReport {
   }
 
   if (!reg.rep04)
-    add('rep04-missing', 'BLOCKER', 'REP04 not imported',
+    add('rep04-missing', 'BLOCKER', 'Cost estimates not imported',
       'Cost estimates and cost estimate dates are illustrative figures, not client data.',
-      0, 'recalc-import', 'Import REP04');
+      0, 'recalc-import', 'Import cost estimates');
 
   if (!reg.rep06)
-    add('rep06-missing', 'BLOCKER', 'REP06 not imported',
+    add('rep06-missing', 'BLOCKER', 'Reported values not imported',
       'There are no source figures to compare the recalculation against.',
-      0, 'recalc-import', 'Import REP06');
+      0, 'recalc-import', 'Import reported values');
 
   const dupes = Object.keys(duplicates);
   if (dupes.length)
@@ -348,12 +348,12 @@ export function exceptions(reg: RecalcRegister): ExceptionReport {
 
   if (noCost.length)
     add('no-cost', 'BLOCKER', 'Obligations with no cost estimate',
-      `Reported by the source system but absent from REP04, so nothing can be escalated: ${list(noCost)}`,
+      `Reported by the source system but absent from the cost estimate extract, so nothing can be escalated: ${list(noCost)}`,
       noCost.length, 'recalculation', 'Open register');
 
   if (noSettlement.length)
     add('no-settlement', 'BLOCKER', 'Obligations with no settlement date',
-      `REP06 supplied no current end date, so the term and the discount rate cannot be determined: ${list(noSettlement)}`,
+      `The reported-values extract supplied no current end date, so the term and the discount rate cannot be determined: ${list(noSettlement)}`,
       noSettlement.length, 'recalculation', 'Open register');
 
   const comp = completeness(reg);
@@ -584,7 +584,7 @@ export function mergeRep06(rows: RecalcRow[], lines: Rep06Line[], file: string):
     added: brought,
     updated: matched,
     skipped: 0,
-    summary: `${matched.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} matched · last: ${file}${brought ? ` (${brought.toLocaleString('en-US')} not in REP04)` : ''}`,
+    summary: `${matched.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} matched · last: ${file}${brought ? ` (${brought.toLocaleString('en-US')} not in cost extract)` : ''}`,
   };
 }
 

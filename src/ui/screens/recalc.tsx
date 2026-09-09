@@ -50,15 +50,22 @@ import {
 import { autoMap, readSheet, ExtractKind } from '../../xlsx/read';
 import { recalcWorkbook } from '../../xlsx/recalcWorkbook';
 import { download } from '../../xlsx/write';
+import {
+  downloadCostEstimatesTemplate,
+  downloadCurveTemplate,
+  downloadReportedValuesTemplate,
+} from '../../xlsx/templates';
 import { Block, Empty, Field, Stats, Tag, SheetTable, num } from '../components';
 
 /* ══ Shared ════════════════════════════════════════════════════════════ */
 
 const EXTRACTS: { kind: ExtractKind; label: string; note: string }[] = [
-  { kind: 'rep04', label: 'REP04', note: 'Cost estimates and cost estimate dates' },
-  { kind: 'rep06', label: 'REP06', note: 'Settlement dates and the reported FV / PV' },
-  { kind: 'curve', label: 'Interest rate curve', note: 'Valid on, term, rate' },
+  { kind: 'rep04', label: 'Cost estimates', note: 'Obligation number, cost estimate, and cost estimate date. Any workbook with those columns — the filename does not matter.' },
+  { kind: 'rep06', label: 'Reported values', note: 'Obligation number, settlement date, and the FV and PV as reported. Any workbook with those columns.' },
+  { kind: 'curve', label: 'Interest rate curve', note: 'Valid on, term in years, and interest rate. Any workbook with those columns.' },
 ];
+
+const FILE_ACCEPT = '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
 const signed = (n: number) => {
   const r = Math.round(n * 100) / 100;
@@ -145,14 +152,14 @@ export function RecalcImport() {
         setError('No usable rows — check the column mapping.');
         return;
       }
-      set('Import REP04 extract', {
+      set('Import cost estimate extract', {
         rows: out.rows,
         seeded: false,
         rep04: withFile(reg.rep04, stage.file, out.summary),
       });
     } else {
       const out = mergeRep06(reg.rows, rep06Lines(stage), stage.file);
-      set('Import REP06 extract', {
+      set('Import reported-values extract', {
         rows: out.rows,
         seeded: false,
         rep06: withFile(reg.rep06, stage.file, out.summary),
@@ -167,24 +174,42 @@ export function RecalcImport() {
   return (
     <>
       <Block
+        kicker="Templates"
+        title="Fill these, then import any workbook with the same columns"
+        note="The filename and the source system do not matter. Required fields are in the header row. Save as .xlsx (Excel Workbook) — older binary .xls files cannot be opened here."
+      >
+        <div data-tour="tour-templates" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button className="btn btn-primary btn-sm" onClick={downloadCostEstimatesTemplate}>
+            Download cost estimates template
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={downloadReportedValuesTemplate}>
+            Download reported values template
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={downloadCurveTemplate}>
+            Download interest rate curve template
+          </button>
+        </div>
+      </Block>
+
+      <Block
         kicker="Source extracts"
-        title="Read the source system's own reports"
+        title="Import any workbook with the required fields"
         note="The file is opened here, in this page, and never leaves the machine. Nothing is written to the register until the column mapping below has been looked at: the sheet, the header row and every column are guesses, and each one is a place a silent import puts the wrong number in front of a reviewer."
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
+        <div data-tour="tour-import" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
           {EXTRACTS.map((x) => {
             const done =
               x.kind === 'rep04' ? reg.rep04 : x.kind === 'rep06' ? reg.rep06 : reg.curve ? { summary: reg.curveSource } : null;
             return (
-              <div key={x.kind} style={{ background: 'var(--color-surface)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div key={x.kind} className="extract-card" style={{ background: 'var(--color-surface)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div className="kicker">{x.label}</div>
                 <div style={{ fontSize: 12, lineHeight: 1.5 }} className="muted">
                   {done ? done.summary : x.note}
                 </div>
                 {(
                   <label className={done ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'} style={{ cursor: 'pointer', alignSelf: 'flex-start' }}>
-                    {busy === x.kind ? 'Reading…' : done ? `Merge another ${x.label}` : `Choose ${x.label} .xlsx`}
-                    <input type="file" accept=".xlsx" style={{ display: 'none' }} onChange={pick(x.kind)} />
+                    {busy === x.kind ? 'Reading…' : done ? `Merge another ${x.label.toLowerCase()} workbook` : `Choose ${x.label.toLowerCase()} workbook`}
+                    <input type="file" accept={FILE_ACCEPT} style={{ display: 'none' }} onChange={pick(x.kind)} />
                   </label>
                 )}
               </div>
@@ -246,7 +271,7 @@ function StagePanel({
 
   return (
     <Block
-      kicker={`${stage.kind.toUpperCase()} — map the columns`}
+      kicker={`${EXTRACTS.find((x) => x.kind === stage.kind)?.label ?? stage.kind} — map the columns`}
       title={stage.file}
       note={`Sheet "${stage.sheet.sheetName}" · ${num(stage.sheet.rows.length)} data rows · headers taken from row ${stage.sheet.headerRow + 1}.`}
       actions={
@@ -335,7 +360,7 @@ export function RecalcSource() {
     <Block
       kicker="Imported data"
       title={snap ? snap.file : 'Nothing imported in this session'}
-      note="The extracts exactly as they were read, with the mapped columns marked, so every figure in the recalculation can be tied back to a row in the original workbook. These rows are held in memory for this session only — they are the client's data and are never written to the database, so they clear on reload."
+      note="The extracts exactly as they were read, with the mapped columns marked, so every figure in the recalculation can be tied back to a row in the original workbook. These rows are held in memory for this session only — they are the client's data and never leave this browser, so they clear on reload."
       actions={
         <div style={{ display: 'flex', gap: 6 }}>
           {EXTRACTS.map((x) => {
@@ -471,10 +496,11 @@ export function Recalculation() {
   const cell = { minHeight: 26, padding: '2px 6px', fontSize: 12 } as const;
 
   return (
+    <div data-tour="tour-results">
     <Block
       kicker="Calculation results"
       title={`${num(totals.count)} obligation${totals.count === 1 ? '' : 's'} in scope`}
-      note="Load REP04 for cost estimates and cost estimate dates, REP06 for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms DAYS360/360."
+      note="Load a cost estimate workbook for costs and cost estimate dates, and a reported-values workbook for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms DAYS360/360."
       actions={<button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Export to Excel (with formulas)</button>}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -499,7 +525,7 @@ export function Recalculation() {
 
       {!reg.rows.length ? (
         <Empty>
-          The register is empty. Import a REP04 extract on Source extracts — it carries the cost estimates and the
+          The register is empty. Import a cost estimate workbook on Source extracts — it carries the cost estimates and the
           cost estimate dates every other figure is built from — or reset to seed from the sidebar.
         </Empty>
       ) : (
@@ -555,7 +581,7 @@ export function Recalculation() {
             { key: 'fv', header: 'FV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).fv, cell: (r) => money(recalculate(r, a, curve).fv) },
             { key: 'pv', header: 'PV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).pv, cell: (r) => <strong>{money(recalculate(r, a, curve).pv)}</strong> },
             {
-              key: 'cost', header: 'Cost est. (REP04)', kind: 'number', thClassName: 'num', value: (r) => r.cost,
+              key: 'cost', header: 'Cost estimate', kind: 'number', thClassName: 'num', value: (r) => r.cost,
               cell: (r) => (
                 <input className="input" value={dv(`cost:${r.id}`, r.cost ? String(r.cost) : '')} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`cost:${r.id}`]: e.target.value }))}
@@ -563,7 +589,7 @@ export function Recalculation() {
               ),
             },
             {
-              key: 'sapFv', header: 'FV (REP06)', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).fv,
+              key: 'sapFv', header: 'FV reported', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).fv,
               cell: (r) => (
                 <input className="input" value={dv(`sfv:${r.id}`, r.sourceFv == null ? '' : String(r.sourceFv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`sfv:${r.id}`]: e.target.value }))}
@@ -575,7 +601,7 @@ export function Recalculation() {
               ),
             },
             {
-              key: 'sapPv', header: 'PV (REP06)', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).pv,
+              key: 'sapPv', header: 'PV reported', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).pv,
               cell: (r) => (
                 <input className="input" value={dv(`spv:${r.id}`, r.sourcePv == null ? '' : String(r.sourcePv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`spv:${r.id}`]: e.target.value }))}
@@ -606,6 +632,7 @@ export function Recalculation() {
         />
       )}
     </Block>
+    </div>
   );
 }
 
@@ -694,7 +721,7 @@ export function RecalcCompare() {
           </Field>
         </div>
         <Stats items={[
-          { label: 'Reported PV (REP06)', value: money(comp.reportedPv) },
+          { label: 'Reported PV', value: money(comp.reportedPv) },
           { label: 'TB less reported', value: comp.status === 'NOT ENTERED' ? '—' : signed(comp.vsReported), tone: comp.status === 'DIFFERENCE' ? 'bad' : undefined },
           { label: 'Recalculated PV', value: money(comp.recalculatedPv) },
           { label: 'TB less recalculated', value: comp.status === 'NOT ENTERED' ? '—' : signed(comp.vsRecalculated) },
@@ -713,8 +740,8 @@ export function RecalcCompare() {
 
         {!compared.length ? (
           <Empty>
-            No obligation carries both a reported FV and a reported PV, so there is nothing to compare. Import a REP06
-            extract on Source extracts.
+            No obligation carries both a reported FV and a reported PV, so there is nothing to compare. Import a
+            reported-values workbook on Source extracts.
           </Empty>
         ) : (
           <SheetTable
@@ -756,6 +783,7 @@ export function RecalcExceptions() {
   const tone = (s: Exception['severity']) => (s === 'BLOCKER' ? 'bad' : s === 'REVIEW' ? 'warn' : 'neutral');
 
   return (
+    <div data-tour="tour-exceptions">
     <Block
       kicker="Exceptions & clearance"
       title={report.clear ? 'Clear to finalise' : `${report.blockers} blocker${report.blockers === 1 ? '' : 's'} open`}
@@ -788,7 +816,7 @@ export function RecalcExceptions() {
                   </td>
                   <td className="num">{x.count ? num(x.count) : <span className="muted">—</span>}</td>
                   <td>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setUi({ screen: x.screen })}>{x.action}</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setUi({ screen: x.screen, tourStep: null })}>{x.action}</button>
                   </td>
                 </tr>
               ))}
@@ -797,6 +825,7 @@ export function RecalcExceptions() {
         </div>
       )}
     </Block>
+    </div>
   );
 }
 
@@ -816,8 +845,8 @@ export function RecalcVariance() {
   if (!row) {
     return (
       <Empty>
-        No obligation carries both a reported FV and a reported PV, so there is no variance to explain. Import a REP06
-        extract on Source extracts.
+        No obligation carries both a reported FV and a reported PV, so there is no variance to explain. Import a
+        reported-values workbook on Source extracts.
       </Empty>
     );
   }

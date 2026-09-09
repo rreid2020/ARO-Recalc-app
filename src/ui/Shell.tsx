@@ -4,13 +4,14 @@
  * seed banner and the portfolio metrics bar.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from './state';
-import { PHASES, STEPS, resolveScreen, stepById, stepNumber } from './nav';
+import { HELP_SCREEN, PHASES, STEPS, resolveScreen, stepById, stepNumber } from './nav';
 import { curveInForce, exceptions, portfolioTotals } from '../core/recalc';
 import { money, parseNumber } from '../core/format';
 import { AroWordmark } from './Logo';
 import { Screen } from './screens';
+import { Tour } from './Tour';
 
 const RULE = '1px solid color-mix(in srgb,var(--color-bg) 20%,transparent)';
 
@@ -22,10 +23,12 @@ const signed = (n: number) => {
 export function Shell() {
   const { state, ui, set, setUi, reset, resetToSeed, storageBlocked } = useStore();
   const screen = resolveScreen(ui.screen);
-  const step = stepById(screen)!;
+  const help = screen === HELP_SCREEN;
+  const step = stepById(screen);
   const report = exceptions(state.reg);
   const totals = useMemo(() => portfolioTotals(state.reg), [state.reg]);
   const extractsIncomplete = !(state.reg.rep04 && state.reg.rep06 && state.reg.curve);
+  const framed = useFramed();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const dv = (key: string, committed: string) => draft[key] ?? committed;
@@ -37,25 +40,30 @@ export function Shell() {
   const curve = curveInForce(state.reg);
   const seedNote = [
     !state.reg.rep04
-      ? `REP04 not imported — ${totals.count.toLocaleString('en-US')} seeded obligations (cost estimates and dates), plus any edits saved in this browser.`
-      : `REP04: ${state.reg.rep04.summary}.`,
+      ? `Cost estimates not imported — ${totals.count.toLocaleString('en-US')} seeded obligations (cost estimates and dates), plus any edits saved in this browser.`
+      : `Cost estimates: ${state.reg.rep04.summary}.`,
     !state.reg.rep06
-      ? `REP06 not imported — reported FV/PV are seeded, and ${totals.covered.toLocaleString('en-US')} of ${totals.count.toLocaleString('en-US')} obligations carry figures to compare against.`
-      : `REP06: ${state.reg.rep06.summary}.`,
+      ? `Reported values not imported — reported FV/PV are seeded, and ${totals.covered.toLocaleString('en-US')} of ${totals.count.toLocaleString('en-US')} obligations carry figures to compare against.`
+      : `Reported values: ${state.reg.rep06.summary}.`,
     !state.reg.curve
       ? `Bond yield curve not imported — discount rates come from the built-in FY26 curve, ${curve.points.length} terms to ${curve.points[curve.points.length - 1]?.term ?? 0} years.`
       : `Curve: ${state.reg.curveSource || curve.asAt}.`,
     `Inflation ${(state.reg.inflation * 100).toFixed(2)}%, FY end ${state.reg.fyEnd}. Figures are illustrative until the real extracts are loaded.`,
   ].join(' ');
 
+  const go = (id: string) => setUi({ screen: id, tourStep: null });
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'stretch' }}>
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {framed && <FrameBanner />}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'stretch' }}>
       <nav
+        data-tour="tour-nav"
         style={{
           width: 244, flex: 'none',
           background: 'var(--color-accent)', color: 'var(--color-bg)',
           display: 'flex', flexDirection: 'column',
-          position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
+          height: '100%', overflowY: 'auto',
         }}
       >
         <div style={{ padding: '16px 18px', borderBottom: RULE }}>
@@ -76,7 +84,7 @@ export function Shell() {
                   title={s.purpose}
                   num={stepNumber(s.id)}
                   badge={s.id === 'recalc-exceptions' && report.blockers ? String(report.blockers) : ''}
-                  onClick={() => setUi({ screen: s.id })}
+                  onClick={() => go(s.id)}
                 />
               ))}
             </React.Fragment>
@@ -93,6 +101,20 @@ export function Shell() {
               : 'Nothing leaves this browser. The extracts, the register and the conclusion are held in local storage only.'}
           </div>
           <button
+            type="button"
+            aria-current={help ? 'page' : undefined}
+            onClick={() => go(HELP_SCREEN)}
+            style={{
+              background: help ? 'color-mix(in srgb,var(--color-bg) 16%,transparent)' : 'transparent',
+              border: '1px solid color-mix(in srgb,var(--color-bg) 40%,transparent)',
+              color: 'var(--color-bg)', padding: '6px 8px', fontSize: 11,
+              cursor: 'pointer', fontFamily: 'var(--font-heading)', fontWeight: 800,
+              textAlign: 'left',
+            }}
+          >
+            How to use it
+          </button>
+          <button
             style={{
               background: 'transparent',
               border: '1px solid color-mix(in srgb,var(--color-bg) 40%,transparent)',
@@ -107,11 +129,13 @@ export function Shell() {
         </div>
       </nav>
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {!help && step && (
         <header
           style={{
             display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap',
             padding: '14px 26px 12px', borderBottom: '2px solid var(--color-divider)',
+            flex: 'none',
           }}
         >
           <div style={{ marginRight: 'auto', minWidth: 0 }}>
@@ -189,14 +213,15 @@ export function Shell() {
                   {totals.flagged} of {totals.covered}
                 </div>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => setUi({ screen: 'recalc-import' })}>
+              <button className="btn btn-primary btn-sm" onClick={() => go('recalc-import')}>
                 Import extracts
               </button>
             </div>
           </div>
         </header>
+        )}
 
-        {extractsIncomplete && (
+        {!help && extractsIncomplete && (
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
@@ -209,7 +234,7 @@ export function Shell() {
             </span>
             <span style={{ fontSize: 12.5, lineHeight: 1.45, flex: 1, minWidth: 240 }}>{seedNote}</span>
             <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
-              <button className="btn btn-sm" style={{ background: 'var(--color-bg)', color: 'var(--color-text)', border: 0 }} onClick={() => setUi({ screen: 'recalc-import' })}>
+              <button className="btn btn-sm" style={{ background: 'var(--color-bg)', color: 'var(--color-text)', border: 0 }} onClick={() => go('recalc-import')}>
                 Import extracts →
               </button>
               <button
@@ -223,7 +248,8 @@ export function Shell() {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'stretch', gap: 2, padding: '10px 26px 12px', borderBottom: '2px solid var(--color-divider)', flexWrap: 'wrap' }}>
+        {!help && (
+        <div data-tour="tour-metrics" style={{ display: 'flex', alignItems: 'stretch', gap: 2, padding: '10px 26px 12px', borderBottom: '2px solid var(--color-divider)', flexWrap: 'wrap', flex: 'none' }}>
           <Metric label="Cost est. at FY end" value={money(totals.cce)} />
           <Metric label="FV at settlement" value={money(totals.fv)} />
           <Metric label="Re-calculated closing PV" value={money(totals.pv)} accent />
@@ -234,11 +260,51 @@ export function Shell() {
             tone={totals.flag === 'VARIANCE' ? 'var(--bad)' : undefined}
           />
         </div>
+        )}
 
-        <main style={{ flex: 1, minWidth: 0, padding: '22px 26px 60px' }}>
+        <main style={{
+          flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto',
+          padding: help ? '36px 48px 80px' : '22px 26px 60px',
+        }}>
           <Screen screen={screen} />
         </main>
       </div>
+      </div>
+      <Tour />
+    </div>
+  );
+}
+
+function useFramed(): boolean {
+  const [framed, setFramed] = useState(false);
+  useEffect(() => {
+    try {
+      setFramed(window.self !== window.top);
+    } catch {
+      setFramed(true);
+    }
+  }, []);
+  return framed;
+}
+
+function FrameBanner() {
+  return (
+    <div style={{
+      flex: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      padding: '8px 16px', background: 'var(--color-accent)', color: 'var(--color-bg)',
+      fontSize: 13, borderBottom: '2px solid var(--color-bg)',
+    }}>
+      <span>This tool is meant to fill the window. Open it on its own, not inside another site.</span>
+      <a
+        href={typeof window !== 'undefined' ? window.location.href : '#'}
+        target="_top"
+        rel="noreferrer"
+        className="btn btn-sm"
+        style={{ background: 'var(--color-bg)', color: 'var(--color-text)', border: 0, textDecoration: 'none' }}
+      >
+        Open full screen
+      </a>
     </div>
   );
 }

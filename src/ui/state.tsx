@@ -49,6 +49,8 @@ export interface UiState {
   userName: string;
   /** Obligation opened on Variance / accretion via Explain. */
   inspectId: string;
+  /** In-app walkthrough. Session only — never written to localStorage. */
+  tourStep: number | null;
 }
 
 export interface AppState {
@@ -67,7 +69,7 @@ function initialState(): AppState {
 }
 
 function initialUi(): UiState {
-  return { screen: FIRST_STEP, userName: '', inspectId: '' };
+  return { screen: FIRST_STEP, userName: '', inspectId: '', tourStep: null };
 }
 
 /**
@@ -97,6 +99,7 @@ function load(): Persisted {
         screen: resolveScreen(typeof u.screen === 'string' ? u.screen : ''),
         userName: typeof u.userName === 'string' ? u.userName : '',
         inspectId: typeof u.inspectId === 'string' ? u.inspectId : '',
+        tourStep: null,
       },
     };
   } catch {
@@ -127,7 +130,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORE, JSON.stringify({ state, ui }));
+      localStorage.setItem(STORE, JSON.stringify({
+        state,
+        ui: { screen: ui.screen, userName: ui.userName, inspectId: ui.inspectId },
+      }));
       setBlocked(false);
     } catch {
       setBlocked(true);

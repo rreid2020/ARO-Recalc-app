@@ -308,7 +308,7 @@ export function RecalcRaw() {
   };
 
   const exportCsv = () => {
-    const head = ['ARO obligation no.', 'Cost estimate (REP04)', 'Cost estimate date (REP04)', 'Settlement date (REP06)', 'Discount rate override', 'FV of obligation (REP06)', 'PV of obligation (REP06)'];
+    const head = ['ARO obligation no.', 'Cost estimate', 'Cost estimate date', 'Settlement date', 'Discount rate override', 'FV as reported', 'PV as reported'];
     const lines = [
       head.join(','),
       ...reg.rows.map((r) => [
@@ -332,7 +332,7 @@ export function RecalcRaw() {
     <Block
       kicker="Raw dataset"
       title={`${num(reg.rows.length)} obligation${reg.rows.length === 1 ? '' : 's'} as stored`}
-      note="There is no server and no database. The register holds what REP04 and REP06 supplied, per obligation; inflation, the FY year end and the curve live in the assumptions library, not on the rows. Every stored field is below, exactly as saved."
+      note="There is no server and no database. The register holds what the cost estimate and reported-values extracts supplied, per obligation; inflation, the FY year end and the curve live in the assumptions library, not on the rows. Every stored field is below, exactly as saved."
       actions={
         <>
           <button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Download Excel (with formulas)</button>
@@ -372,8 +372,8 @@ export function RecalcRaw() {
             { key: 'pk', header: 'Cost est. date', kind: 'date', value: (r) => r.costEstimateDate, cell: (r) => r.costEstimateDate || '—' },
             { key: 'st', header: 'Settlement', kind: 'date', value: (r) => r.settlementDate, cell: (r) => r.settlementDate || '—' },
             { key: 'disc', header: 'Rate override', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.rateOverride ?? '', cell: (r) => r.rateOverride != null ? ratePct(r.rateOverride) : <span className="muted">curve</span> },
-            { key: 'sapFv', header: 'FV (REP06)', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.sourceFv ?? '', cell: (r) => r.sourceFv != null ? money(r.sourceFv) : <span className="muted">—</span> },
-            { key: 'sapPv', header: 'PV (REP06)', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.sourcePv ?? '', cell: (r) => r.sourcePv != null ? money(r.sourcePv) : <span className="muted">—</span> },
+            { key: 'sapFv', header: 'FV reported', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.sourceFv ?? '', cell: (r) => r.sourceFv != null ? money(r.sourceFv) : <span className="muted">—</span> },
+            { key: 'sapPv', header: 'PV reported', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => r.sourcePv ?? '', cell: (r) => r.sourcePv != null ? money(r.sourcePv) : <span className="muted">—</span> },
             { key: 'cce', header: 'CCE', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).cce, cell: (r) => money(recalculate(r, a, curve).cce) },
             { key: 'fv', header: 'FV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).fv, cell: (r) => money(recalculate(r, a, curve).fv) },
             { key: 'pv', header: 'PV', kind: 'number', thClassName: 'num', tdClassName: 'num', value: (r) => recalculate(r, a, curve).pv, cell: (r) => <strong>{money(recalculate(r, a, curve).pv)}</strong> },

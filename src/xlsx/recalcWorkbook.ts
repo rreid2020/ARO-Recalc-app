@@ -22,7 +22,7 @@ const head = (t: string): Cell => ({ v: t, s: S.head });
 
 const RESULT_HEADERS = [
   'ARO obligation no.',
-  'Cost estimate (REP04)',
+  'Cost estimate',
   'Cost estimate date',
   'Settlement date',
   'Modified cost estimate date (leap-year adj.)',
@@ -36,8 +36,8 @@ const RESULT_HEADERS = [
   'Cost estimate at FY end',
   'FV at settlement',
   'PV at FY year end',
-  'FV per source (REP06)',
-  'PV per source (REP06)',
+  'FV as reported',
+  'PV as reported',
   'FV variance',
   'PV variance',
   'PV variance % of reported',
@@ -122,15 +122,15 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
     [{ v: 'Curve vintage', s: S.bold }, { v: curve.asAt }],
     [{ v: 'Curve source', s: S.bold }, { v: reg.curveSource || 'Built-in FY26 curve' }],
     [
-      { v: 'REP04 source', s: S.bold },
+      { v: 'Cost estimate source', s: S.bold },
       { v: reg.rep04?.summary || 'not imported — register entered manually' },
     ],
-    [{ v: 'REP04 extracts', s: S.bold }, { v: (reg.rep04?.files ?? []).join('; ') || '—' }],
+    [{ v: 'Cost estimate extracts', s: S.bold }, { v: (reg.rep04?.files ?? []).join('; ') || '—' }],
     [
-      { v: 'REP06 source', s: S.bold },
+      { v: 'Reported-values source', s: S.bold },
       { v: reg.rep06?.summary || 'not imported — no reported FV/PV' },
     ],
-    [{ v: 'REP06 extracts', s: S.bold }, { v: (reg.rep06?.files ?? []).join('; ') || '—' }],
+    [{ v: 'Reported-values extracts', s: S.bold }, { v: (reg.rep06?.files ?? []).join('; ') || '—' }],
     [{ v: 'Day count', s: S.bold }, { v: 'Excel DAYS360 (US 30/360), divided by 360' }],
     [
       { v: 'Leap-year adjustment', s: S.bold },
@@ -152,7 +152,7 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
     { v: reg.trialBalancePv ?? 0, s: S.money },
   ]);
   assumptions.push([
-    { v: 'Total PV per REP06 across the register', s: S.bold },
+    { v: 'Total PV as reported across the register', s: S.bold },
     { f: `SUM(Results!Q4:Q${last})`, s: S.money },
   ]);
   assumptions.push([

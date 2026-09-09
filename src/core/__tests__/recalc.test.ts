@@ -342,7 +342,7 @@ describe('REP06 merge', () => {
     // quietly shrinking the population the control total is measured against.
     expect(out.rows[1]).toMatchObject({ cost: 0, costEstimateDate: '', sourcePv: 800 });
     expect(out.added).toBe(1);
-    expect(out.summary).toContain('1 not in REP04');
+    expect(out.summary).toContain('1 not in cost extract');
   });
 
   it('takes the settlement date even when the figures are unusable', () => {

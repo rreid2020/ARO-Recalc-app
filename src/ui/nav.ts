@@ -27,7 +27,7 @@ export const STEPS: StepDef[] = [
     label: 'Source extracts',
     phase: 'Prepare',
     purpose:
-      'Load the cost estimate extract (REP04), the settlement date and reported value extract (REP06) and the interest rate curve. Each file is staged, its columns mapped and its content shown before anything is merged, so nothing enters the register unseen.',
+      'Load a cost estimate workbook, a reported-values workbook (settlement dates and FV / PV as reported) and an interest rate curve. Any .xlsx with the required columns will do — download a template if you need the headers. Each file is staged, its columns mapped and its content shown before anything is merged.',
   },
   {
     id: 'recalc-source',
@@ -101,8 +101,15 @@ export const STEPS: StepDef[] = [
 /** A fresh register opens on the calculation, as the original tool did. */
 export const FIRST_STEP = 'recalculation';
 
+/** How to use it — a help surface, not an eleventh numbered step. */
+export const HELP_SCREEN = 'recalc-help';
+
 export function stepById(id: string): StepDef | undefined {
   return STEPS.find((s) => s.id === id);
+}
+
+export function isKnownScreen(id: string): boolean {
+  return !!stepById(id) || id === HELP_SCREEN;
 }
 
 /**
@@ -113,7 +120,7 @@ export function stepById(id: string): StepDef | undefined {
  * register.
  */
 export function resolveScreen(id: string): string {
-  return stepById(id) ? id : FIRST_STEP;
+  return isKnownScreen(id) ? id : FIRST_STEP;
 }
 
 /** "03" — the step's position, for the sidebar. */

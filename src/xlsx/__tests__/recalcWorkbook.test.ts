@@ -142,8 +142,8 @@ describe('Assumptions — the inputs and the provenance', () => {
   });
 
   it('names every file that was merged, not just the last one', () => {
-    expect(cell(labelled('REP04 extracts')![1]).v).toBe('REP04.xlsx');
-    expect(cell(labelled('REP06 source')![1]).v).toBe('1 extract · 1 matched');
+    expect(cell(labelled('Cost estimate extracts')![1]).v).toBe('REP04.xlsx');
+    expect(cell(labelled('Reported-values source')![1]).v).toBe('1 extract · 1 matched');
   });
 
   it('states the day count and the leap-year adjustment in words', () => {

@@ -197,9 +197,35 @@ describe('column matching', () => {
     });
   });
 
+  it('does not treat a coincidental substring as a match', () => {
+    expect(findColumn([{ index: 0, label: 'Widget' }], [['id']])).toBe(-1);
+    expect(findColumn([{ index: 0, label: 'ID' }], [['id']])).toBe(0);
+  });
+
   it('covers every field each extract needs', () => {
     expect(Object.keys(COLUMN_HINTS.rep04)).toEqual(['id', 'cost', 'costEstimateDate']);
     expect(Object.keys(COLUMN_HINTS.rep06)).toEqual(['id', 'settlementDate', 'fv', 'pv']);
     expect(Object.keys(COLUMN_HINTS.curve)).toEqual(['validOn', 'term', 'rate']);
+  });
+
+  it('maps generic headers that are not SAP report names', () => {
+    expect(autoMap('rep04', [
+      { index: 0, label: 'Obligation ID' },
+      { index: 1, label: 'Undiscounted cost' },
+      { index: 2, label: 'Estimate date' },
+    ])).toEqual({ id: 0, cost: 1, costEstimateDate: 2 });
+
+    expect(autoMap('rep06', [
+      { index: 0, label: 'ID' },
+      { index: 1, label: 'Retirement date' },
+      { index: 2, label: 'Fair value' },
+      { index: 3, label: 'Present value' },
+    ])).toEqual({ id: 0, settlementDate: 1, fv: 2, pv: 3 });
+
+    expect(autoMap('curve', [
+      { index: 0, label: 'As of' },
+      { index: 1, label: 'Years' },
+      { index: 2, label: 'Yield' },
+    ])).toEqual({ validOn: 0, term: 1, rate: 2 });
   });
 });
