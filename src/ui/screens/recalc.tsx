@@ -358,6 +358,7 @@ export function RecalcSource() {
   }
 
   return (
+    <div data-tour="tour-source">
     <Block
       kicker="Imported data"
       title={snap ? snap.file : 'Nothing imported in this session'}
@@ -434,6 +435,7 @@ export function RecalcSource() {
         </>
       )}
     </Block>
+    </div>
   );
 }
 
@@ -689,7 +691,7 @@ export function RecalcCompare() {
   const compared = reg.rows.filter((r) => sourceFigures(r).has);
 
   return (
-    <>
+    <div data-tour="tour-compare">
       <Block kicker="Completeness" title="The trial balance control total"
         note={comp.note}
         actions={
@@ -770,7 +772,7 @@ export function RecalcCompare() {
           />
         )}
       </Block>
-    </>
+    </div>
   );
 }
 
@@ -845,10 +847,12 @@ export function RecalcVariance() {
 
   if (!row) {
     return (
+      <div data-tour="tour-variance">
       <Empty>
         No obligation carries both a reported FV and a reported PV, so there is no variance to explain. Import a
         reported-values workbook on Source extracts.
       </Empty>
+      </div>
     );
   }
 
@@ -866,7 +870,7 @@ export function RecalcVariance() {
   const maxStep = Math.max(...bridge.steps.map((x) => Math.abs(x.amount)), Math.abs(s.pv - k.pv), 0.01);
 
   return (
-    <>
+    <div data-tour="tour-variance">
       <Block kicker="Variance & sign-off" title={`Obligation ${row.id}`}
         note="The source system publishes three figures and none of its assumptions, so its rates are back-solved over the recalculated terms. An implied rate absorbs everything in its leg — including a wrong cost estimate or a wrong date — which is why the steps are labelled by leg rather than by cause."
         actions={
@@ -1003,6 +1007,6 @@ export function RecalcVariance() {
           </div>
         )}
       </Block>
-    </>
+    </div>
   );
 }

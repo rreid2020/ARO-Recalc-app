@@ -47,9 +47,11 @@ export function RecalcAccretion() {
 
   if (!row) {
     return (
+      <div data-tour="tour-accretion">
       <Empty>
         The register is empty. Import extracts on Source extracts, or reset to seed from the sidebar.
       </Empty>
+      </div>
     );
   }
 
@@ -58,7 +60,7 @@ export function RecalcAccretion() {
   const maxAccr = Math.max(...schedule.periods.map((p) => Math.abs(p.accretion)), 0.01);
 
   return (
-    <>
+    <div data-tour="tour-accretion">
       <Block
         kicker="Results & accretion"
         title={`Obligation ${row.id}`}
@@ -116,7 +118,7 @@ export function RecalcAccretion() {
       <Block kicker="Excel formulas" title={`Obligation ${row.id}`}>
         <FormulaPanel row={row} reg={reg} />
       </Block>
-    </>
+    </div>
   );
 }
 
@@ -124,6 +126,7 @@ export function RecalcAudit() {
   const { state, ui } = useStore();
 
   return (
+    <div data-tour="tour-audit">
     <Block
       kicker="Audit trail"
       title={state.log.length ? `${num(state.log.length)} recorded action${state.log.length === 1 ? '' : 's'}` : 'Nothing recorded yet'}
@@ -156,6 +159,7 @@ export function RecalcAudit() {
         </div>
       )}
     </Block>
+    </div>
   );
 }
 
@@ -172,7 +176,7 @@ export function RecalcAssumptions() {
   const policies = inflationPoliciesOf(reg);
 
   return (
-    <>
+    <div data-tour="tour-assumptions">
       <Block
         kicker="Assumptions library"
         title="Rates that apply to every obligation"
@@ -374,7 +378,7 @@ export function RecalcAssumptions() {
           </div>
         </Block>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -434,6 +438,7 @@ export function RecalcRaw() {
   };
 
   return (
+    <div data-tour="tour-raw">
     <Block
       kicker="Raw dataset"
       title={`${num(reg.rows.length)} obligation${reg.rows.length === 1 ? '' : 's'} as stored`}
@@ -486,5 +491,6 @@ export function RecalcRaw() {
         />
       )}
     </Block>
+    </div>
   );
 }

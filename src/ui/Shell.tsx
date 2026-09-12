@@ -132,6 +132,7 @@ export function Shell() {
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {!help && step && (
         <header
+          data-tour="tour-header"
           style={{
             display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap',
             padding: '14px 26px 12px', borderBottom: '2px solid var(--color-divider)',

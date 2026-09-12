@@ -85,7 +85,7 @@ export function RecalcSingle() {
   };
 
   return (
-    <div>
+    <div data-tour="tour-single">
       <Block
         kicker="Single obligation"
         title="Assumptions, inputs, PV and FV"

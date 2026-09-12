@@ -594,7 +594,9 @@ a:hover { color: var(--color-accent-700); }
   background: transparent;
 }
 .tour-tip {
-  position: fixed; z-index: 81; width: 340px; max-width: calc(100vw - 32px);
+  position: fixed; z-index: 81; width: 380px; max-width: calc(100vw - 32px);
+  max-height: min(420px, calc(100vh - 32px));
+  overflow: auto;
   background: var(--color-bg); color: var(--color-text);
   padding: 16px 18px; border: 2px solid var(--color-accent);
   box-shadow: var(--shadow-lg);
