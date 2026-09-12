@@ -150,32 +150,54 @@ export function Shell() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-            <div className="field" style={{ width: 146, margin: 0 }}>
-              <label>FY year end</label>
-              <input
-                className="input"
-                value={dv('fyEnd', state.reg.fyEnd)}
-                onChange={(e) => setDraft((d) => ({ ...d, fyEnd: e.target.value }))}
-                onBlur={(e) => {
-                  commit('fyEnd');
-                  if (e.target.value !== state.reg.fyEnd) set('Set FY year end', { fyEnd: e.target.value });
-                }}
-                style={{ fontVariantNumeric: 'tabular-nums', minHeight: 30, fontSize: 13 }}
-              />
-            </div>
-            <div className="field" style={{ width: 88, margin: 0 }}>
-              <label>Inflation</label>
-              <input
-                className="input"
-                value={dv('infl', (state.reg.inflation * 100).toFixed(2))}
-                onChange={(e) => setDraft((d) => ({ ...d, infl: e.target.value }))}
-                onBlur={(e) => {
-                  commit('infl');
-                  set('Set inflation rate', { inflation: parseNumber(e.target.value) / 100 });
-                }}
-                style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', minHeight: 30, fontSize: 13 }}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => go('recalc-assumptions')}
+              title="Change in Assumptions library"
+              style={{
+                background: 'transparent', border: 0, padding: 0, margin: 0,
+                textAlign: 'left', cursor: 'pointer', color: 'inherit',
+              }}
+            >
+              <div className="field" style={{ width: 146, margin: 0 }}>
+                <label>FY year end</label>
+                <div
+                  className="input"
+                  style={{
+                    fontVariantNumeric: 'tabular-nums', minHeight: 30, fontSize: 13,
+                    background: 'var(--color-surface)', cursor: 'pointer',
+                    fontFamily: 'var(--font-heading)', fontWeight: 800,
+                    display: 'flex', alignItems: 'center',
+                  }}
+                >
+                  {state.reg.fyEnd}
+                </div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => go('recalc-assumptions')}
+              title="Change in Assumptions library"
+              style={{
+                background: 'transparent', border: 0, padding: 0, margin: 0,
+                textAlign: 'left', cursor: 'pointer', color: 'inherit',
+              }}
+            >
+              <div className="field" style={{ width: 88, margin: 0 }}>
+                <label>Inflation</label>
+                <div
+                  className="input"
+                  style={{
+                    textAlign: 'right', fontVariantNumeric: 'tabular-nums', minHeight: 30, fontSize: 13,
+                    background: 'var(--color-surface)', cursor: 'pointer',
+                    fontFamily: 'var(--font-heading)', fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+                  }}
+                >
+                  {(state.reg.inflation * 100).toFixed(2)}
+                </div>
+              </div>
+            </button>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, paddingLeft: 16, borderLeft: '1px solid var(--color-divider)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div className="kicker">Materiality</div>

@@ -17,4 +17,13 @@ describe('resolveScreen', () => {
   it('lands an unknown id on the first step', () => {
     expect(resolveScreen('legacy-engagement')).toBe(FIRST_STEP);
   });
+
+  it('numbers Single obligation as the first Measure step without shifting Prepare', () => {
+    expect(stepById('recalc-single')?.phase).toBe('Measure');
+    expect(stepNumber('recalc-import')).toBe('01');
+    expect(stepNumber('recalc-source')).toBe('02');
+    expect(stepNumber('recalc-single')).toBe('03');
+    expect(stepNumber('recalculation')).toBe('04');
+    expect(resolveScreen('recalc-single')).toBe('recalc-single');
+  });
 });

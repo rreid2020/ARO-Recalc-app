@@ -24,11 +24,13 @@ import {
   RecalcAudit,
   RecalcRaw,
 } from './recalcMore';
+import { RecalcSingle } from './single';
 import { RecalcHelp } from './help';
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
   'recalc-import': RecalcImport,
   'recalc-source': RecalcSource,
+  'recalc-single': RecalcSingle,
   recalculation: Recalculation,
   'recalc-accretion': RecalcAccretion,
   'recalc-compare': RecalcCompare,

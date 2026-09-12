@@ -9,7 +9,12 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILT_IN_CURVE,
   RecalcRegister,
+  applyInflation,
   completeness,
+  defaultInflationPolicies,
+  emptyRecalcRegister,
+  normalizeInflationPolicies,
+  normalizeWorksheet,
   curveInForce,
   exceptions,
   mergeRep04,
@@ -17,8 +22,11 @@ import {
   portfolioTotals,
   vintageMatchesYearEnd,
   withFile,
+  worksheetOf,
 } from '../recalc';
-import { RecalcRow, recalculate } from '../../engine/recalc';
+import { RecalcRow, recalculate, sourceFigures, varianceFlag } from '../../engine/recalc';
+import { formulasFor } from '../recalcFormulas';
+import { money } from '../format';
 
 const row = (over: Partial<RecalcRow> = {}): RecalcRow => ({
   id: 'A1',
@@ -365,5 +373,64 @@ describe('extract provenance', () => {
     expect(two.files).toEqual(['a.xlsx', 'b.xlsx']);
     expect(one.summary).toBe('1 extract · first');
     expect(two.summary).toBe('2 extracts · second');
+  });
+});
+
+describe('inflation policy options', () => {
+  it('restores the three defaults when nothing was stored', () => {
+    expect(normalizeInflationPolicies(undefined).map((p) => p.id)).toEqual(['base', 'cpi', 'construction']);
+    expect(defaultInflationPolicies()).toHaveLength(3);
+  });
+
+  it('keeps an edited library rather than replacing it with the defaults', () => {
+    const kept = normalizeInflationPolicies([
+      { id: 'mine', label: 'Client CPI', basis: 'FY26', rate: 0.018 },
+    ]);
+    expect(kept).toEqual([{ id: 'mine', label: 'Client CPI', basis: 'FY26', rate: 0.018 }]);
+  });
+
+  it('moves the in-use option when the live inflation rate is edited', () => {
+    const policies = defaultInflationPolicies();
+    const next = applyInflation(policies, 0.02, 0.0225);
+    expect(next.inflation).toBe(0.0225);
+    expect(next.inflationPolicies.find((p) => p.id === 'base')?.rate).toBe(0.0225);
+    expect(next.inflationPolicies.find((p) => p.id === 'cpi')?.rate).toBe(0.025);
+  });
+});
+
+describe('the single-obligation worksheet', () => {
+  it('treats a missing or unusable blob as a blank obligation', () => {
+    expect(normalizeWorksheet(undefined).cost).toBe(0);
+    expect(normalizeWorksheet(null).costEstimateDate).toBe('');
+    expect(worksheetOf({}).id).toBe('');
+    expect(emptyRecalcRegister('2026-03-31').worksheet?.sourceFv).toBeNull();
+  });
+
+  it('keeps a stored override of zero rather than treating it as “use the curve”', () => {
+    expect(normalizeWorksheet({ cost: 10, rateOverride: 0 }).rateOverride).toBe(0);
+  });
+
+  it('the Excel restatement reproduces the engine PV, FV and variance flag', () => {
+    const stored = normalizeWorksheet({
+      id: 'WS-1',
+      cost: 1_000_000,
+      costEstimateDate: '2021-06-30',
+      settlementDate: '2036-06-30',
+      sourceFv: 1_400_000,
+      sourcePv: 1_050_000,
+    });
+    const reg = { ...emptyRecalcRegister('2026-03-31'), worksheet: stored, inflation: 0.02 };
+    const a = { fyEnd: reg.fyEnd, inflation: reg.inflation, dayCount: reg.dayCount };
+    const curve = curveInForce(reg);
+    const k = recalculate(stored, a, curve);
+    const s = sourceFigures(stored);
+    const rows = formulasFor(stored, a, curve, reg.materiality);
+    const cell = (ref: string) => rows.find((r) => r.ref === ref);
+
+    expect(cell('A8')?.value).toBe(money(k.fv));
+    expect(cell('A9')?.value).toBe(money(k.pv));
+    expect(cell('A12')?.value).not.toBe('—');
+    expect(cell('A15')?.value).toBe(varianceFlag(s.pv - k.pv, s.pv, reg.materiality));
+    expect(worksheetOf(reg).id).toBe('WS-1');
   });
 });

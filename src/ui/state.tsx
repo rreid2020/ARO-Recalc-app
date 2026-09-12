@@ -19,7 +19,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { RecalcRegister, emptyRecalcRegister } from '../core/recalc';
+import { RecalcRegister, emptyRecalcRegister, normalizeInflationPolicies, normalizeWorksheet } from '../core/recalc';
 import { seededRecalcRegister } from '../core/seed';
 import { FIRST_STEP, resolveScreen } from './nav';
 import { coerceDayCount } from '../engine/dates';
@@ -93,7 +93,13 @@ function load(): Persisted {
     const u = (blob.ui ?? {}) as Partial<UiState>;
     return {
       state: {
-        reg: { ...emptyRecalcRegister(DEFAULT_FY_END), ...d.reg, dayCount: coerceDayCount(d.reg.dayCount) },
+        reg: {
+          ...emptyRecalcRegister(DEFAULT_FY_END),
+          ...d.reg,
+          dayCount: coerceDayCount(d.reg.dayCount),
+          inflationPolicies: normalizeInflationPolicies(d.reg.inflationPolicies),
+          worksheet: normalizeWorksheet(d.reg.worksheet),
+        },
         log: Array.isArray(d.log) ? d.log : [],
       },
       ui: {

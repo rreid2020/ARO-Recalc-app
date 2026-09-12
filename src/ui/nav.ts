@@ -1,5 +1,5 @@
 /**
- * The ten steps of a recalculation — the original calculator's workflow,
+ * The numbered steps of a recalculation — the original calculator's workflow,
  * labelled in the ARO Suite's vocabulary so a firm running both reads one
  * language.
  *
@@ -38,6 +38,13 @@ export const STEPS: StepDef[] = [
   },
 
   /* ── Measure ──────────────────────────────────────────────────────────── */
+  {
+    id: 'recalc-single',
+    label: 'Single obligation',
+    phase: 'Measure',
+    purpose:
+      'One page: set the assumptions, enter the cost estimate and dates, optionally the FV and PV an external source reported, and read the recalculated present and future values with the variance and the calculation that produced them.',
+  },
   {
     id: 'recalculation',
     label: 'Calculation results',
@@ -101,7 +108,7 @@ export const STEPS: StepDef[] = [
 /** A fresh register opens on the calculation, as the original tool did. */
 export const FIRST_STEP = 'recalculation';
 
-/** How to use it — a help surface, not an eleventh numbered step. */
+/** How to use it — a help surface, not a numbered workflow step. */
 export const HELP_SCREEN = 'recalc-help';
 
 export function stepById(id: string): StepDef | undefined {

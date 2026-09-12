@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { portfolioTotals } from '../recalc';
-import { INFLATION_PRESETS, SEED_ROWS, seededRecalcRegister } from '../seed';
+import { defaultInflationPolicies, portfolioTotals } from '../recalc';
+import { SEED_ROWS, seededRecalcRegister } from '../seed';
 
 describe('seeded demo register', () => {
   it('opens on the three Master Sheet obligations', () => {
@@ -20,7 +20,7 @@ describe('seeded demo register', () => {
   });
 
   it('does not name a department or defence organisation on the inflation presets', () => {
-    const labels = INFLATION_PRESETS.map((p) => `${p.label} ${p.basis}`).join(' ');
+    const labels = defaultInflationPolicies().map((p) => `${p.label} ${p.basis}`).join(' ');
     expect(labels).not.toMatch(/DND|National Defence|Department of National Defence|defence|defense/i);
   });
 });

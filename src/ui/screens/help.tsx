@@ -3,8 +3,7 @@
  *
  * Structure follows Onstrength's help page: a short hero, a "show me instead"
  * walkthrough, three pillars, then a five-minute version with an on-this-page
- * list. The ten numbered workflow steps stay in the sidebar; this screen is
- * extra, not an eleventh step.
+ * list. The numbered workflow steps stay in the sidebar; this screen is extra.
  */
 
 import React from 'react';
@@ -19,6 +18,7 @@ import {
 
 const TOC = [
   { id: 'five-minute', label: 'The five-minute version' },
+  { id: 'one-page', label: 'One obligation, no extracts' },
   { id: 'templates', label: '1. Get the templates' },
   { id: 'import', label: '2. Import any matching workbook' },
   { id: 'results', label: '3. Read the recalculation' },
@@ -88,8 +88,9 @@ export function RecalcHelp() {
           <div className="help-kicker">How it works</div>
           <p>
             Three workbooks in — cost estimates, reported values, interest rate
-            curve — then ten steps from import to sign-off. Seeded demo data is
-            already in the register so you can click around before you import.
+            curve — then the numbered steps from import to sign-off. Or skip the
+            extracts and price one obligation on Single obligation. Seeded demo
+            data is already in the register so you can click around before you import.
           </p>
         </div>
       </div>
@@ -113,12 +114,30 @@ export function RecalcHelp() {
             <h2>The five-minute version</h2>
             <p className="help-tagline">If you only read one thing</p>
             <ol className="help-steps">
-              <li><strong>Templates.</strong> Download the three workbooks on Source extracts, or use your own files if the columns are there.</li>
+              <li><strong>One obligation.</strong> Open Single obligation. Set inflation, the year end and the day count, enter the cost and dates, optionally the FV and PV an external source reported, and read the recalculated values with the calculation underneath.</li>
+              <li><strong>Templates.</strong> For a whole extract, download the three workbooks on Source extracts, or use your own files if the columns are there.</li>
               <li><strong>Import.</strong> Choose each workbook. Confirm the column mapping. Nothing enters the register until you say so.</li>
               <li><strong>Results.</strong> Each obligation is escalated and discounted independently. Open a row for the Excel form of the same calc.</li>
               <li><strong>Compare.</strong> Reported FV and PV sit beside the recalculation. Enter the trial-balance total so the population is proven complete.</li>
               <li><strong>Clear.</strong> Blockers on Exceptions &amp; clearance go when the data changes. Sign off on Variance &amp; sign-off when they are gone.</li>
             </ol>
+          </section>
+
+          <section id="one-page">
+            <h2>One obligation, no extracts</h2>
+            <p>
+              Single obligation is the calculator when you are not importing a
+              population. Assumptions (year end, inflation, day count, discount
+              rate, materiality), the cost estimate and dates, and the comparable
+              figures from an external source all sit on one page. The results
+              are the same CCE / FV / PV chain as Calculation results, with the
+              variance against what was reported and the Excel restatement of
+              every step.
+            </p>
+            <p>
+              Changing inflation or the year end here changes them for the whole
+              register — there is one set of assumptions, not a private copy.
+            </p>
           </section>
 
           <section id="templates">
@@ -169,10 +188,10 @@ export function RecalcHelp() {
             <h2>3. Read the recalculation</h2>
             <p>
               Calculation results is the independent measurement. Inflation and the
-              FY year end in the header apply to every obligation. The discount
+              FY year end in the assumptions library apply to every obligation. The discount
               rate is looked up on the curve at each obligation&apos;s term, rounded
-              up to the next whole year. Day count is chosen in the assumptions
-              library (default Excel DAYS360 / 360).
+              up to the next whole year. Day count is chosen there as well
+              (default Excel DAYS360 / 360).
             </p>
             <p>
               Seeded demo obligations are there so the screen is not empty. Import

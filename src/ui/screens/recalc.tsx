@@ -1,10 +1,10 @@
 /**
  * Mode 1 — recalculation & completeness.
  *
- * Ten screens over one register: import the source system's extracts,
- * inspect them as they were read, recalculate, walk the accretion, compare,
- * clear the exceptions, conclude on the variance, then the audit trail,
- * the assumptions library and the raw dataset.
+ * Eleven screens over one register: a one-page calculator, then import the
+ * source system's extracts, inspect them as they were read, recalculate, walk
+ * the accretion, compare, clear the exceptions, conclude on the variance, then
+ * the audit trail, the assumptions library and the raw dataset.
  *
  * The prototype hand-rolled a column-filter panel, a sort menu and a pager for
  * its register. None of that is ported: `SheetTable` already does all three,
@@ -501,7 +501,7 @@ export function Recalculation() {
     <Block
       kicker="Calculation results"
       title={`${num(totals.count)} obligation${totals.count === 1 ? '' : 's'} in scope`}
-      note={`Load a cost estimate workbook for costs and cost estimate dates, and a reported-values workbook for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms ${coerceDayCount(a.dayCount)}.`}
+      note={`Load a cost estimate workbook for costs and cost estimate dates, and a reported-values workbook for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the assumptions library, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms ${coerceDayCount(a.dayCount)}.`}
       actions={<button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Export to Excel (with formulas)</button>}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>

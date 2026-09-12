@@ -8,8 +8,9 @@ import { useRegister, useStore } from '../state';
 import {
   assumptionsOf,
   curveInForce,
+  inflationPoliciesOf,
+  InflationPolicy,
 } from '../../core/recalc';
-import { INFLATION_PRESETS } from '../../core/seed';
 import { money, parseNumber } from '../../core/format';
 import { DAY_COUNTS, coerceDayCount, isThirty360 } from '../../engine/dates';
 import {
@@ -168,6 +169,7 @@ export function RecalcAssumptions() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const dv = (k: string, v: string) => draft[k] ?? v;
   const commit = (k: string) => setDraft((d) => { const n = { ...d }; delete n[k]; return n; });
+  const policies = inflationPoliciesOf(reg);
 
   return (
     <>
@@ -184,15 +186,6 @@ export function RecalcAssumptions() {
               onChange={(e) => setDraft((d) => ({ ...d, fyEnd: e.target.value }))}
               onBlur={(e) => { commit('fyEnd'); if (e.target.value !== reg.fyEnd) set('Set FY year end', { fyEnd: e.target.value }); }}
               style={{ fontVariantNumeric: 'tabular-nums' }}
-            />
-          </Field>
-          <Field label="Inflation rate — all obligations (%)">
-            <input
-              className="input"
-              value={dv('infl', (reg.inflation * 100).toFixed(2))}
-              onChange={(e) => setDraft((d) => ({ ...d, infl: e.target.value }))}
-              onBlur={(e) => { commit('infl'); set('Set inflation rate', { inflation: parseNumber(e.target.value) / 100 }); }}
-              style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
             />
           </Field>
           <Field label="Curve vintage">
@@ -239,20 +232,115 @@ export function RecalcAssumptions() {
           </div>
         </Block>
 
-        <Block kicker="Inflation policy" title="Applies to every obligation">
+        <Block
+          kicker="Inflation policy"
+          title="Applies to every obligation"
+          note="Edit the named options here. Set applies that rate to every obligation, including the single-obligation calculator. That rate is also editable on Single obligation — both write the same assumption."
+          actions={
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                const id = `p${Date.now()}`;
+                set('Add inflation option', { inflationPolicies: [...policies, { id, label: 'New inflation', basis: '', rate: 0 }] });
+              }}
+            >
+              + Add option
+            </button>
+          }
+        >
           <table className="table">
-            <thead><tr><th>Curve</th><th>Basis</th><th className="num">Rate</th><th /></tr></thead>
+            <thead><tr><th>Curve</th><th>Basis</th><th className="num">Rate %</th><th /></tr></thead>
             <tbody>
-              {INFLATION_PRESETS.map((p) => (
-                <tr key={p.label}>
-                  <td>{p.label}</td>
-                  <td>{p.basis}</td>
-                  <td className="num">{(p.rate * 100).toFixed(2)}%</td>
-                  <td className="num">
-                    <button className="btn btn-ghost btn-sm" onClick={() => set('Set inflation rate', { inflation: p.rate })}>Set</button>
-                  </td>
-                </tr>
-              ))}
+              {policies.map((p) => {
+                const active = Math.abs(p.rate - reg.inflation) < 1e-12;
+                const cell = { minHeight: 28, padding: '2px 6px', fontSize: 12.5 } as const;
+                const patch = (next: Partial<InflationPolicy>, action: string) => {
+                  set(action, {
+                    inflationPolicies: policies.map((row) => (row.id === p.id ? { ...row, ...next } : row)),
+                  }, p.label);
+                };
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      <input
+                        className="input"
+                        value={dv(`il:${p.id}`, p.label)}
+                        onChange={(e) => setDraft((d) => ({ ...d, [`il:${p.id}`]: e.target.value }))}
+                        onBlur={(e) => {
+                          commit(`il:${p.id}`);
+                          if (e.target.value !== p.label) patch({ label: e.target.value.trim() || p.label }, 'Rename inflation option');
+                        }}
+                        style={{ ...cell, minWidth: 140 }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="input"
+                        value={dv(`ib:${p.id}`, p.basis)}
+                        onChange={(e) => setDraft((d) => ({ ...d, [`ib:${p.id}`]: e.target.value }))}
+                        onBlur={(e) => {
+                          commit(`ib:${p.id}`);
+                          if (e.target.value !== p.basis) patch({ basis: e.target.value }, 'Set inflation basis');
+                        }}
+                        style={cell}
+                      />
+                    </td>
+                    <td className="num">
+                      <input
+                        className="input"
+                        value={dv(`ir:${p.id}`, (p.rate * 100).toFixed(2))}
+                        onChange={(e) => setDraft((d) => ({ ...d, [`ir:${p.id}`]: e.target.value }))}
+                        onBlur={(e) => {
+                          commit(`ir:${p.id}`);
+                          const rate = parseNumber(e.target.value) / 100;
+                          if (active) {
+                            set(
+                              'Set inflation rate',
+                              {
+                                inflation: rate,
+                                inflationPolicies: policies.map((row) => (row.id === p.id ? { ...row, rate } : row)),
+                              },
+                              p.label,
+                            );
+                          } else {
+                            patch({ rate }, 'Set inflation option rate');
+                          }
+                        }}
+                        style={{ ...cell, width: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                      />
+                    </td>
+                    <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                      <button
+                        className={active ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                        onClick={() => {
+                          const typed = draft[`ir:${p.id}`];
+                          const rate = typed != null ? parseNumber(typed) / 100 : p.rate;
+                          commit(`ir:${p.id}`);
+                          set(
+                            'Set inflation rate',
+                            {
+                              inflation: rate,
+                              inflationPolicies: policies.map((row) => (row.id === p.id ? { ...row, rate } : row)),
+                            },
+                            p.label,
+                          );
+                        }}
+                      >
+                        {active ? 'In use' : 'Set'}
+                      </button>
+                      {policies.length > 1 && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => set('Remove inflation option', { inflationPolicies: policies.filter((row) => row.id !== p.id) }, p.label)}
+                          style={{ marginLeft: 4 }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <div style={{ marginTop: 20, background: 'var(--color-surface)', padding: 14 }}>
@@ -339,6 +427,7 @@ export function RecalcRaw() {
       fyEnd: reg.fyEnd,
       inflation: reg.inflation,
       dayCount: coerceDayCount(reg.dayCount),
+      inflationPolicies: inflationPoliciesOf(reg),
       materiality: reg.materiality,
       obligations: reg.rows,
     }, null, 2), 'application/json');

@@ -20,8 +20,8 @@ export const TOUR_STEPS: TourStop[] = [
   {
     target: 'tour-nav',
     screen: 'recalc-import',
-    title: 'The ten steps',
-    body: 'Prepare, Measure, Assure — extracts in, independent recalculation, then exceptions and sign-off. You can jump to any step; nothing here is a wizard you cannot leave.',
+    title: 'The numbered steps',
+    body: 'Prepare, Measure, Assure — extracts in, independent recalculation, then exceptions and sign-off. Single obligation is the one-page calculator when you are not importing a population. You can jump to any step; nothing here is a wizard you cannot leave.',
   },
   {
     target: 'tour-templates',

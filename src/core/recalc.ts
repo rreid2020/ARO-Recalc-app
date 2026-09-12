@@ -26,6 +26,108 @@ import {
 import { money } from './format';
 import { DayCount, DEFAULT_DAY_COUNT, coerceDayCount } from '../engine/dates';
 
+/** A named inflation option the user can edit and apply from the assumptions library. */
+export interface InflationPolicy {
+  id: string;
+  label: string;
+  basis: string;
+  /** Decimal, e.g. 0.02 for 2%. */
+  rate: number;
+}
+
+export function defaultInflationPolicies(): InflationPolicy[] {
+  return [
+    { id: 'base', label: 'Base inflation', basis: 'Current', rate: 0.02 },
+    { id: 'cpi', label: 'CPI-U long run', basis: 'Sensitivity — high', rate: 0.025 },
+    { id: 'construction', label: 'Construction cost', basis: 'Sensitivity — ENR', rate: 0.031 },
+  ];
+}
+
+export function normalizeInflationPolicies(raw: unknown): InflationPolicy[] {
+  if (!Array.isArray(raw)) return defaultInflationPolicies();
+  const out: InflationPolicy[] = [];
+  raw.forEach((item, i) => {
+    if (!item || typeof item !== 'object') return;
+    const o = item as Record<string, unknown>;
+    const rateRaw = typeof o.rate === 'number' ? o.rate : parseFloat(String(o.rate ?? ''));
+    const rate = Number.isFinite(rateRaw) ? rateRaw : 0;
+    const label = String(o.label ?? '').trim() || `Inflation ${i + 1}`;
+    const basis = String(o.basis ?? '').trim();
+    const id = String(o.id ?? '').trim() || `p${i + 1}`;
+    out.push({ id, label, basis, rate });
+  });
+  return out.length ? out : defaultInflationPolicies();
+}
+
+export function inflationPoliciesOf(reg: Pick<RecalcRegister, 'inflationPolicies'>): InflationPolicy[] {
+  return normalizeInflationPolicies(reg.inflationPolicies);
+}
+
+/**
+ * Apply a live inflation rate and keep the matching named option in step.
+ *
+ * The assumptions library and the single-obligation calculator both write
+ * `inflation`; when a named option currently matches, its rate moves with it
+ * so "In use" does not silently point at a stale figure.
+ */
+export function applyInflation(
+  policies: InflationPolicy[] | undefined,
+  current: number,
+  next: number,
+): { inflation: number; inflationPolicies: InflationPolicy[] } {
+  const list = normalizeInflationPolicies(policies);
+  const idx = list.findIndex((p) => Math.abs(p.rate - current) < 1e-12);
+  return {
+    inflation: next,
+    inflationPolicies: idx >= 0 ? list.map((p, i) => (i === idx ? { ...p, rate: next } : p)) : list,
+  };
+}
+
+/** An empty scratch obligation — dates blank, source figures unset. */
+export function emptyWorksheet(): RecalcRow {
+  return {
+    id: '',
+    cost: 0,
+    costEstimateDate: '',
+    settlementDate: '',
+    rateOverride: null,
+    sourceFv: null,
+    sourcePv: null,
+  };
+}
+
+function finiteOr(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const n = parseFloat(String(value ?? ''));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function finiteOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const n = parseFloat(String(value));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** A stored worksheet, or a blank one if nothing usable was kept. */
+export function normalizeWorksheet(raw: unknown): RecalcRow {
+  if (!raw || typeof raw !== 'object') return emptyWorksheet();
+  const o = raw as Record<string, unknown>;
+  return {
+    id: String(o.id ?? ''),
+    cost: finiteOr(o.cost, 0),
+    costEstimateDate: String(o.costEstimateDate ?? ''),
+    settlementDate: String(o.settlementDate ?? ''),
+    rateOverride: finiteOrNull(o.rateOverride),
+    sourceFv: finiteOrNull(o.sourceFv),
+    sourcePv: finiteOrNull(o.sourcePv),
+  };
+}
+
+export function worksheetOf(reg: Pick<RecalcRegister, 'worksheet'>): RecalcRow {
+  return normalizeWorksheet(reg.worksheet);
+}
+
 /* ══ The built-in curve ════════════════════════════════════════════════ */
 
 /**
@@ -63,6 +165,8 @@ export interface RecalcRegister {
   inflation: number;
   /** Year-fraction convention used for every term. */
   dayCount?: DayCount;
+  /** Named inflation options shown in the assumptions library. */
+  inflationPolicies?: InflationPolicy[];
   materiality: Materiality;
   rows: RecalcRow[];
   /** The client's imported curve, or null while the built-in one applies. */
@@ -76,6 +180,11 @@ export interface RecalcRegister {
    * from it, which is the point.
    */
   trialBalancePv: number | null;
+  /**
+   * Scratch obligation for the single-page calculator. Kept off `rows` so
+   * typing one figure does not enter the extract population or the exceptions.
+   */
+  worksheet?: RecalcRow;
   /** True while the register still holds illustrative rows rather than an extract. */
   seeded: boolean;
   /** Who concluded on the variance analysis, or null while it is outstanding. */
@@ -94,6 +203,7 @@ export function emptyRecalcRegister(fyEnd: string): RecalcRegister {
     fyEnd,
     inflation: 0.02,
     dayCount: DEFAULT_DAY_COUNT,
+    inflationPolicies: defaultInflationPolicies(),
     materiality: { usd: 1000, pct: 0.1 },
     rows: [],
     curve: null,
@@ -101,6 +211,7 @@ export function emptyRecalcRegister(fyEnd: string): RecalcRegister {
     rep04: null,
     rep06: null,
     trialBalancePv: null,
+    worksheet: emptyWorksheet(),
     seeded: false,
     signedOff: null,
   };
