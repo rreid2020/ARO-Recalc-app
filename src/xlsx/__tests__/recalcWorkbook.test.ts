@@ -151,6 +151,16 @@ describe('Assumptions — the inputs and the provenance', () => {
     expect(cell(labelled('Leap-year adjustment')![1]).v).toContain('day after the FY year end');
   });
 
+  it('writes Actual/Actual terms as YEARFRAC when that convention is selected', () => {
+    const actual = recalcWorkbook({ ...reg, dayCount: 'Actual/Actual' }, '2026-08-21 09:41 UTC');
+    const results = actual.find((s) => s.name === 'Results')!;
+    const g = cell(results.rows[3][6]);
+    expect(g.f).toBe('YEARFRAC(Assumptions!$B$3,D4,1)');
+    const assumptions = actual.find((s) => s.name === 'Assumptions')!;
+    const day = assumptions.rows.find((r) => r[0] && cell(r[0]).v === 'Day count');
+    expect(cell(day![1]).v).toBe('Actual/Actual');
+  });
+
   it('reconciles the control total inside the workbook, so it survives without the tool', () => {
     const tb = rows.findIndex((r) => r[0] && String(cell(r[0]).v).startsWith('Total ARO PV'));
     expect(cell(rows[tb][1]).v).toBe(32685377.12);

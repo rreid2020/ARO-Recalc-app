@@ -142,15 +142,42 @@ export const DAY_COUNTS: DayCount[] = [
 
 export const DEFAULT_DAY_COUNT: DayCount = '30/360 US (DAYS360)';
 
+export function coerceDayCount(value: unknown): DayCount {
+  return DAY_COUNTS.includes(value as DayCount) ? (value as DayCount) : DEFAULT_DAY_COUNT;
+}
+
 export function isThirty360(dayCount: string): boolean {
-  return dayCount.startsWith('30');
+  return coerceDayCount(dayCount).startsWith('30');
+}
+
+/**
+ * Excel restatement of a year-fraction between two date expressions
+ * (cell refs or `"YYYY-MM-DD"` literals).
+ */
+export function excelYearFraction(start: string, end: string, dayCount: DayCount | string = DEFAULT_DAY_COUNT): string {
+  const asDate = (expr: string) => {
+    const t = expr.trim();
+    return t.startsWith('"') ? `DATEVALUE(${t})` : t;
+  };
+  switch (coerceDayCount(dayCount)) {
+    case '30E/360 (European)':
+      return `DAYS360(${start},${end},TRUE)/360`;
+    case 'Actual/365':
+      return `(${asDate(end)}-${asDate(start)})/365`;
+    case 'Actual/360':
+      return `(${asDate(end)}-${asDate(start)})/360`;
+    case 'Actual/Actual':
+      return `YEARFRAC(${asDate(start)},${asDate(end)},1)`;
+    default:
+      return `DAYS360(${start},${end})/360`;
+  }
 }
 
 /**
  * Term in years under the selected day count. Default remains 30/360 US.
  */
 export function termYears(a: string, b: string, dayCount: DayCount | string = DEFAULT_DAY_COUNT): number {
-  switch (dayCount) {
+  switch (coerceDayCount(dayCount)) {
     case '30E/360 (European)':
       return days360eu(a, b) / 360;
     case 'Actual/365':

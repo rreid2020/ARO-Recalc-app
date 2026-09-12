@@ -319,3 +319,22 @@ describe('the accretion schedule', () => {
     expect(past.total).toBe(0);
   });
 });
+
+describe('selectable day count', () => {
+  it('prices a different term under Actual/365 than under 30/360 US', () => {
+    const us = recalculate(row(), assumptions, curve);
+    const act = recalculate(row(), { ...assumptions, dayCount: 'Actual/365' }, curve);
+    expect(act.tD).not.toBeCloseTo(us.tD, 8);
+    expect(act.pv).not.toBeCloseTo(us.pv, 2);
+  });
+
+  it('does not apply the leap-year shift on actual conventions', () => {
+    const leap = recalculate(
+      row({ costEstimateDate: '2024-06-30' }),
+      { ...assumptions, dayCount: 'Actual/Actual' },
+      curve,
+    );
+    expect(leap.leap).toBe(false);
+    expect(leap.mcd).toBe('2026-03-31');
+  });
+});

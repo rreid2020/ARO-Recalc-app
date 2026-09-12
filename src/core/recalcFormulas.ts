@@ -22,6 +22,7 @@ import {
   varianceFlag,
 } from '../engine/recalc';
 import { money } from './format';
+import { coerceDayCount, excelYearFraction, isThirty360 } from '../engine/dates';
 
 export interface FormulaRow {
   /** The cell the formula belongs in. */
@@ -65,10 +66,15 @@ export function formulasFor(
   const inflPct = a.inflation * 100;
   const ratePct = k.rate * 100;
   const maxTerm = curveMaxTerm(curve);
+  const dayCount = coerceDayCount(a.dayCount);
 
-  const termExpr = `DAYS360(${q(a.fyEnd)},${q(row.settlementDate)})/360`;
+  const termExpr = excelYearFraction(q(a.fyEnd), q(row.settlementDate), dayCount);
   const year = `YEAR(${q(row.costEstimateDate)})`;
   const leapTest = `OR(MOD(${year},400)=0,AND(MOD(${year},4)=0,MOD(${year},100)<>0))`;
+  const mcdFormula = isThirty360(dayCount)
+    ? `=IF(${leapTest},DATEVALUE(${q(a.fyEnd)})+1,DATEVALUE(${q(a.fyEnd)}))`
+    : `=DATEVALUE(${q(a.fyEnd)})`;
+  const t1Expr = excelYearFraction(q(row.costEstimateDate), q(a.fyEnd), dayCount);
 
   const rows: [string, string, string, string][] = [
     ['A1', 'Inflation rate (assumptions)', `=${inflPct.toFixed(2)}/100`, `${inflPct.toFixed(2)}%`],
@@ -78,7 +84,7 @@ export function formulasFor(
       `=${ratePct.toFixed(5)}/100`,
       `${ratePct.toFixed(5)}%`,
     ],
-    ['A3', 'Discount term, FY year end to settlement, 30/360', `=${termExpr}`, k.tD.toFixed(4)],
+    ['A3', `Discount term, FY year end to settlement, ${dayCount}`, `=${termExpr}`, k.tD.toFixed(4)],
     [
       'A4',
       `Curve term — rounded up, floored at 1, capped at the end of the curve (${maxTerm} yrs)`,
@@ -87,20 +93,22 @@ export function formulasFor(
     ],
     [
       'A5',
-      'Modified cost estimate date — the day after the FY year end when the cost estimate date falls in a leap year',
-      `=IF(${leapTest},DATEVALUE(${q(a.fyEnd)})+1,DATEVALUE(${q(a.fyEnd)}))`,
+      isThirty360(dayCount)
+        ? 'Modified cost estimate date — the day after the FY year end when the cost estimate date falls in a leap year'
+        : 'Modified cost estimate date — the FY year end (leap-year shift applies only on 30/360)',
+      mcdFormula,
       k.mcd + (k.leap ? ' — leap-year adjustment applied' : ''),
     ],
     [
       'A6',
-      'Escalation term, modified cost estimate date to settlement, 30/360',
-      `=DAYS360(A5,${q(row.settlementDate)})/360`,
+      `Escalation term, modified cost estimate date to settlement, ${dayCount}`,
+      `=${excelYearFraction('A5', q(row.settlementDate), dayCount)}`,
       k.t2.toFixed(4),
     ],
     [
       'A7',
       'Cost estimate at FY year end',
-      `=${row.cost.toFixed(2)}*(1+A1)^(DAYS360(${q(row.costEstimateDate)},${q(a.fyEnd)})/360)`,
+      `=${row.cost.toFixed(2)}*(1+A1)^(${t1Expr})`,
       money(k.cce),
     ],
     ['A8', 'FV at settlement', '=A7*(1+A1)^A6', money(k.fv)],

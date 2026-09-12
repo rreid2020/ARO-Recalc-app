@@ -24,6 +24,7 @@ import {
   varianceFlag,
 } from '../engine/recalc';
 import { money } from './format';
+import { DayCount, DEFAULT_DAY_COUNT, coerceDayCount } from '../engine/dates';
 
 /* ══ The built-in curve ════════════════════════════════════════════════ */
 
@@ -60,6 +61,8 @@ export interface RecalcRegister {
   fyEnd: string;
   /** Inflation / escalation, decimal. */
   inflation: number;
+  /** Year-fraction convention used for every term. */
+  dayCount?: DayCount;
   materiality: Materiality;
   rows: RecalcRow[];
   /** The client's imported curve, or null while the built-in one applies. */
@@ -90,6 +93,7 @@ export function emptyRecalcRegister(fyEnd: string): RecalcRegister {
   return {
     fyEnd,
     inflation: 0.02,
+    dayCount: DEFAULT_DAY_COUNT,
     materiality: { usd: 1000, pct: 0.1 },
     rows: [],
     curve: null,
@@ -108,7 +112,7 @@ export function curveInForce(reg: Pick<RecalcRegister, 'curve'>): RecalcCurve {
 }
 
 export function assumptionsOf(reg: RecalcRegister): RecalcAssumptions {
-  return { fyEnd: reg.fyEnd, inflation: reg.inflation };
+  return { fyEnd: reg.fyEnd, inflation: reg.inflation, dayCount: coerceDayCount(reg.dayCount) };
 }
 
 /* ══ Portfolio totals ══════════════════════════════════════════════════ */

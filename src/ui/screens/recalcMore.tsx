@@ -11,6 +11,7 @@ import {
 } from '../../core/recalc';
 import { INFLATION_PRESETS } from '../../core/seed';
 import { money, parseNumber } from '../../core/format';
+import { DAY_COUNTS, coerceDayCount, isThirty360 } from '../../engine/dates';
 import {
   RecalcRow,
   accretionSchedule,
@@ -173,7 +174,7 @@ export function RecalcAssumptions() {
       <Block
         kicker="Assumptions library"
         title="Rates that apply to every obligation"
-        note="Inflation and the FY year end are set here once. The discount rate is not entered — it is looked up on the interest rate curve at each obligation's term from the FY year end to settlement, rounded up to the next whole year."
+        note="Inflation, the FY year end and the day-count convention are set here once. The discount rate is not entered — it is looked up on the interest rate curve at each obligation's term from the FY year end to settlement, rounded up to the next whole year."
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 18, padding: 16, background: 'var(--color-surface)', marginBottom: 4 }}>
           <Field label="FY year end (valuation date)">
@@ -198,7 +199,16 @@ export function RecalcAssumptions() {
             <div className="input" style={{ background: 'transparent', fontFamily: 'var(--font-heading)', fontWeight: 800 }}>{curve.asAt}</div>
           </Field>
           <Field label="Day count">
-            <div className="input" style={{ background: 'transparent', fontFamily: 'var(--font-heading)', fontWeight: 800 }}>DAYS360 · 30/360 US</div>
+            <select
+              className="input"
+              value={coerceDayCount(reg.dayCount)}
+              onChange={(e) => set('Set day count', { dayCount: coerceDayCount(e.target.value) })}
+              style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, minHeight: 38 }}
+            >
+              {DAY_COUNTS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </Field>
         </div>
       </Block>
@@ -248,10 +258,15 @@ export function RecalcAssumptions() {
           <div style={{ marginTop: 20, background: 'var(--color-surface)', padding: 14 }}>
             <div className="kicker" style={{ color: 'var(--color-accent)' }}>Day count</div>
             <p style={{ margin: '6px 0 0', fontSize: 12.5 }}>
-              Every term is Excel <strong>DAYS360 (US 30/360)</strong> divided by 360 — escalation from the cost estimate
+              Every term uses <strong>{coerceDayCount(reg.dayCount)}</strong> — escalation from the cost estimate
               date to the FY year end, escalation from the modified cost estimate date to settlement, and discounting
-              from the FY year end back. Where the cost estimate date falls in a <strong>leap year</strong>, the
-              modified cost estimate date is the day after the FY year end.
+              from the FY year end back.
+              {isThirty360(reg.dayCount ?? '') ? (
+                <> Where the cost estimate date falls in a <strong>leap year</strong>, the
+              modified cost estimate date is the day after the FY year end.</>
+              ) : (
+                <> Leap-year shift is not applied on actual conventions — those already count the extra day.</>
+              )}
             </p>
           </div>
           <div style={{ marginTop: 14, background: 'var(--color-surface)', padding: 14 }}>
@@ -323,6 +338,7 @@ export function RecalcRaw() {
     downloadText('aro-register.json', JSON.stringify({
       fyEnd: reg.fyEnd,
       inflation: reg.inflation,
+      dayCount: coerceDayCount(reg.dayCount),
       materiality: reg.materiality,
       obligations: reg.rows,
     }, null, 2), 'application/json');

@@ -40,7 +40,7 @@ export const SEED_ROWS: RecalcRow[] = [
 ];
 
 export const INFLATION_PRESETS: { label: string; basis: string; rate: number }[] = [
-  { label: 'DND policy inflation', basis: 'Current', rate: 0.02 },
+  { label: 'Base inflation', basis: 'Current', rate: 0.02 },
   { label: 'CPI-U long run', basis: 'Sensitivity — high', rate: 0.025 },
   { label: 'Construction cost', basis: 'Sensitivity — ENR', rate: 0.031 },
 ];

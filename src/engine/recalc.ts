@@ -17,7 +17,18 @@
  * Pure and dependency-free, like the rest of `src/engine/`.
  */
 
-import { days360, isLeapYear, nextDay, parseISO, term360, toISO, yearOf } from './dates';
+import {
+  DayCount,
+  DEFAULT_DAY_COUNT,
+  coerceDayCount,
+  isLeapYear,
+  isThirty360,
+  nextDay,
+  parseISO,
+  termYears,
+  toISO,
+  yearOf,
+} from './dates';
 
 /* ══ The curve ═════════════════════════════════════════════════════════ */
 
@@ -140,6 +151,8 @@ export interface RecalcAssumptions {
   fyEnd: string;
   /** Inflation / escalation, decimal. One rate, all obligations. */
   inflation: number;
+  /** Year-fraction convention. Defaults to 30/360 US. */
+  dayCount?: DayCount;
 }
 
 export interface RecalcResult {
@@ -184,7 +197,12 @@ export interface RecalcResult {
  * for others. That is a conversation with whoever owns the Master Sheet, not a
  * code change — see the project README, "Findings".
  */
-export function modifiedCostEstimateDate(costEstimateDate: string, fyEnd: string): string {
+export function modifiedCostEstimateDate(
+  costEstimateDate: string,
+  fyEnd: string,
+  dayCount: DayCount | string = DEFAULT_DAY_COUNT,
+): string {
+  if (!isThirty360(dayCount)) return fyEnd;
   const y = yearOf(costEstimateDate);
   return y !== null && isLeapYear(y) ? nextDay(fyEnd) : fyEnd;
 }
@@ -205,13 +223,15 @@ export function recalcRate(
 
 /**
  * The chain — ENGINE-SPEC §3. Escalate the cost estimate to the FY year end,
- * escalate again to settlement, discount back. All terms on 30/360 US.
+ * escalate again to settlement, discount back. Terms use the selected day count
+ * (30/360 US unless the assumptions library says otherwise).
  */
 export function recalculate(row: RecalcRow, a: RecalcAssumptions, curve: RecalcCurve): RecalcResult {
-  const mcd = modifiedCostEstimateDate(row.costEstimateDate, a.fyEnd);
-  const t1 = term360(row.costEstimateDate, a.fyEnd);
-  const t2 = term360(mcd, row.settlementDate);
-  const tD = term360(a.fyEnd, row.settlementDate);
+  const dayCount = coerceDayCount(a.dayCount);
+  const mcd = modifiedCostEstimateDate(row.costEstimateDate, a.fyEnd, dayCount);
+  const t1 = termYears(row.costEstimateDate, a.fyEnd, dayCount);
+  const t2 = termYears(mcd, row.settlementDate, dayCount);
+  const tD = termYears(a.fyEnd, row.settlementDate, dayCount);
 
   const { rate, overridden, lookup } = recalcRate(row, curve, tD);
 
@@ -376,15 +396,16 @@ export function accretionSchedule(
   curve: RecalcCurve,
 ): AccretionSchedule {
   const k = recalculate(row, a, curve);
+  const dayCount = coerceDayCount(a.dayCount);
   const periods: AccretionPeriod[] = [];
   let balance = k.pv;
   let cursor = a.fyEnd;
   let n = 0;
 
-  for (; n < 60 && days360(cursor, row.settlementDate) > 0; n++) {
+  for (; n < 60 && termYears(cursor, row.settlementDate, dayCount) > 0; n++) {
     let next = anniversaryOf(cursor);
-    if (days360(next, row.settlementDate) < 0) next = row.settlementDate;
-    const closing = balance * Math.pow(1 + k.rate, term360(cursor, next));
+    if (termYears(next, row.settlementDate, dayCount) < 0) next = row.settlementDate;
+    const closing = balance * Math.pow(1 + k.rate, termYears(cursor, next, dayCount));
     periods.push({
       to: next,
       opening: balance,
@@ -399,7 +420,7 @@ export function accretionSchedule(
   return {
     periods,
     total: balance - k.pv,
-    truncated: n >= 60 && days360(cursor, row.settlementDate) > 0,
+    truncated: n >= 60 && termYears(cursor, row.settlementDate, dayCount) > 0,
   };
 }
 

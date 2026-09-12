@@ -38,6 +38,7 @@ import {
 } from '../../core/recalcImport';
 import { formulasFor } from '../../core/recalcFormulas';
 import { money, parseNumber } from '../../core/format';
+import { coerceDayCount } from '../../engine/dates';
 import {
   RecalcRow,
   accretionSchedule,
@@ -500,7 +501,7 @@ export function Recalculation() {
     <Block
       kicker="Calculation results"
       title={`${num(totals.count)} obligation${totals.count === 1 ? '' : 's'} in scope`}
-      note="Load a cost estimate workbook for costs and cost estimate dates, and a reported-values workbook for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms DAYS360/360."
+      note={`Load a cost estimate workbook for costs and cost estimate dates, and a reported-values workbook for the settlement date and the FV and PV as reported. Nothing else is entered per obligation: inflation and the FY year end come from the header, and the discount rate is looked up on the curve at each obligation's term rounded up to the next whole year. The cost estimate is escalated to the FY year end, escalated again to settlement, then discounted back — all terms ${coerceDayCount(a.dayCount)}.`}
       actions={<button className="btn btn-primary btn-sm" onClick={exportBook} disabled={!reg.rows.length}>Export to Excel (with formulas)</button>}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -916,8 +917,8 @@ export function RecalcVariance() {
               {[
                 ['Inflation rate', `${(a.inflation * 100).toFixed(4)}%`, `${(bridge.implied.inflation * 100).toFixed(4)}%`, near(a.inflation, bridge.implied.inflation)],
                 ['Discount rate', ratePct(k.rate), `${(bridge.implied.rate * 100).toFixed(5)}%`, near(k.rate, bridge.implied.rate)],
-                ['Escalation term', bridge.implied.tE.toFixed(4), '30/360', true],
-                ['Discount term', bridge.implied.tD.toFixed(4), '30/360', true],
+                ['Escalation term', bridge.implied.tE.toFixed(4), coerceDayCount(a.dayCount), true],
+                ['Discount term', bridge.implied.tD.toFixed(4), coerceDayCount(a.dayCount), true],
                 ['FV at settlement', money(k.fv), money(s.fv), Math.abs(k.fv - s.fv) < 0.005],
                 ['PV at FY year end', money(k.pv), money(s.pv), Math.abs(k.pv - s.pv) < 0.005],
               ].map(([label, ours, theirs, agrees]) => (

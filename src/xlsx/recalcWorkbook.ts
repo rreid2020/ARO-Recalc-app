@@ -15,7 +15,8 @@
  */
 
 import { RecalcRegister, assumptionsOf, curveInForce } from '../core/recalc';
-import { sortedCurve, recalculate, sourceFigures } from '../engine/recalc';
+import { sortedCurve, sourceFigures } from '../engine/recalc';
+import { coerceDayCount, excelYearFraction, isThirty360 } from '../engine/dates';
 import { Cell, S, Sheet, colName } from './write';
 
 const head = (t: string): Cell => ({ v: t, s: S.head });
@@ -27,7 +28,7 @@ const RESULT_HEADERS = [
   'Settlement date',
   'Modified cost estimate date (leap-year adj.)',
   'Discount rate override %',
-  'Term to settlement (30/360)',
+  'Term to settlement',
   'Curve term (rounded up)',
   'Discount rate %',
   'Inflation %',
@@ -51,6 +52,11 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
   const a = assumptionsOf(reg);
   const curve = curveInForce(reg);
   const points = sortedCurve(curve);
+  const dayCount = coerceDayCount(a.dayCount);
+  const leapF = (costCell: string, fyRef: string) =>
+    isThirty360(dayCount)
+      ? `IF(OR(MOD(YEAR(${costCell}),400)=0,AND(MOD(YEAR(${costCell}),4)=0,MOD(YEAR(${costCell}),100)<>0)),${fyRef}+1,${fyRef})`
+      : fyRef;
 
   /* ── Results ──────────────────────────────────────────────────────── */
 
@@ -73,18 +79,18 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
       { v: row.costEstimateDate, t: 'd' },
       { v: row.settlementDate, t: 'd' },
       {
-        f: `IF(OR(MOD(YEAR(C${r}),400)=0,AND(MOD(YEAR(C${r}),4)=0,MOD(YEAR(C${r}),100)<>0)),Assumptions!$B$3+1,Assumptions!$B$3)`,
+        f: leapF(`C${r}`, 'Assumptions!$B$3'),
         s: S.date,
       },
       // Percent in the sheet, decimal in the engine — the workbook is read by
       // people, and a rate column of 0.0337 is a support call.
       row.rateOverride != null ? { v: row.rateOverride * 100, s: S.rate } : null,
-      { f: `DAYS360(Assumptions!$B$3,D${r})/360`, s: S.term },
+      { f: excelYearFraction('Assumptions!$B$3', `D${r}`, dayCount), s: S.term },
       { f: `MIN(MAX(ROUNDUP(G${r},0),1),Curve!$E$1)` },
       { f: `IF(F${r}<>"",F${r},VLOOKUP(H${r},Curve!$A$2:$B$1000,2,FALSE))`, s: S.rate },
       { f: 'Assumptions!$B$4', s: S.rate },
-      { f: `DAYS360(C${r},Assumptions!$B$3)/360`, s: S.term },
-      { f: `DAYS360(E${r},D${r})/360`, s: S.term },
+      { f: excelYearFraction(`C${r}`, 'Assumptions!$B$3', dayCount), s: S.term },
+      { f: excelYearFraction(`E${r}`, `D${r}`, dayCount), s: S.term },
       { f: `B${r}*(1+J${r}/100)^K${r}`, s: S.money },
       { f: `M${r}*(1+J${r}/100)^L${r}`, s: S.money },
       { f: `N${r}/(1+I${r}/100)^G${r}`, s: S.money },
@@ -131,11 +137,13 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
       { v: reg.rep06?.summary || 'not imported — no reported FV/PV' },
     ],
     [{ v: 'Reported-values extracts', s: S.bold }, { v: (reg.rep06?.files ?? []).join('; ') || '—' }],
-    [{ v: 'Day count', s: S.bold }, { v: 'Excel DAYS360 (US 30/360), divided by 360' }],
+    [{ v: 'Day count', s: S.bold }, { v: dayCount }],
     [
       { v: 'Leap-year adjustment', s: S.bold },
       {
-        v: 'Cost estimate dated in a leap year: escalation to settlement runs from the day after the FY year end (column E)',
+        v: isThirty360(dayCount)
+          ? 'Cost estimate dated in a leap year: escalation to settlement runs from the day after the FY year end (column E)'
+          : 'Not applied — actual day counts already include leap days, so escalation runs from the FY year end',
       },
     ],
     [{ v: 'Signed off', s: S.bold }, { v: reg.signedOff ? `${reg.signedOff.by} · ${reg.signedOff.at}` : 'not signed' }],
@@ -182,7 +190,7 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
     [],
     [head('Column'), head('What it computes'), head('Excel formula (row 4)')],
   ];
-  METHOD.forEach(([col, what, formula]) =>
+  METHOD(dayCount).forEach(([col, what, formula]) =>
     method.push([{ v: col, s: S.bold }, { v: what }, { v: formula }]),
   );
   method.push([]);
@@ -206,13 +214,20 @@ export function recalcWorkbook(reg: RecalcRegister, exportedAt: string): Sheet[]
   ];
 }
 
-const METHOD: [string, string, string][] = [
+const METHOD = (dayCount: string): [string, string, string][] => {
+  const dc = coerceDayCount(dayCount);
+  const leap = isThirty360(dc)
+    ? '=IF(OR(MOD(YEAR(C4),400)=0,AND(MOD(YEAR(C4),4)=0,MOD(YEAR(C4),100)<>0)),Assumptions!$B$3+1,Assumptions!$B$3)'
+    : '=Assumptions!$B$3';
+  return [
   [
     'E',
-    'Modified cost estimate date — the FY year end, moved on one day when the cost estimate date falls in a leap year (the extra day the 30/360 grid cannot carry)',
-    '=IF(OR(MOD(YEAR(C4),400)=0,AND(MOD(YEAR(C4),4)=0,MOD(YEAR(C4),100)<>0)),Assumptions!$B$3+1,Assumptions!$B$3)',
+    isThirty360(dc)
+      ? 'Modified cost estimate date — the FY year end, moved on one day when the cost estimate date falls in a leap year (the extra day the 30/360 grid cannot carry)'
+      : 'Modified cost estimate date — the FY year end (leap-year shift is not used on actual day counts)',
+    leap,
   ],
-  ['G', 'Term from the FY year end to settlement, 30/360 — the discount term', '=DAYS360(Assumptions!$B$3,D4)/360'],
+  ['G', `Term from the FY year end to settlement, ${dc} — the discount term`, `=${excelYearFraction('Assumptions!$B$3', 'D4', dc)}`],
   [
     'H',
     'Curve term — the term rounded UP to the next whole year (the SAP convention), floored at 1 and capped at the end of the curve',
@@ -224,11 +239,11 @@ const METHOD: [string, string, string][] = [
     '=IF(F4<>"",F4,VLOOKUP(H4,Curve!$A$2:$B$1000,2,FALSE))',
   ],
   ['J', 'Inflation rate from the assumptions sheet', '=Assumptions!$B$4'],
-  ['K', 'Escalation term from the cost estimate date to the FY year end, 30/360', '=DAYS360(C4,Assumptions!$B$3)/360'],
+  ['K', `Escalation term from the cost estimate date to the FY year end, ${dc}`, `=${excelYearFraction('C4', 'Assumptions!$B$3', dc)}`],
   [
     'L',
-    'Escalation term from the modified cost estimate date to settlement, 30/360',
-    '=DAYS360(E4,D4)/360',
+    `Escalation term from the modified cost estimate date to settlement, ${dc}`,
+    `=${excelYearFraction('E4', 'D4', dc)}`,
   ],
   ['M', 'Cost estimate escalated to the FY year end', '=B4*(1+J4/100)^K4'],
   ['N', 'FV — escalated again from the modified cost estimate date to settlement', '=M4*(1+J4/100)^L4'],
@@ -242,3 +257,4 @@ const METHOD: [string, string, string][] = [
     '=IF(Q4="","NO SOURCE DATA",IF(OR(ABS(ROUND(Q4-O4,2))>Assumptions!$B$5,ABS(ROUND(Q4-O4,2)/Q4*100)>Assumptions!$B$6),"VARIANCE","PASS"))',
   ],
 ];
+};

@@ -22,6 +22,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { RecalcRegister, emptyRecalcRegister } from '../core/recalc';
 import { seededRecalcRegister } from '../core/seed';
 import { FIRST_STEP, resolveScreen } from './nav';
+import { coerceDayCount } from '../engine/dates';
 
 const STORE = 'aro-recalc-v3';
 
@@ -92,7 +93,7 @@ function load(): Persisted {
     const u = (blob.ui ?? {}) as Partial<UiState>;
     return {
       state: {
-        reg: { ...emptyRecalcRegister(DEFAULT_FY_END), ...d.reg },
+        reg: { ...emptyRecalcRegister(DEFAULT_FY_END), ...d.reg, dayCount: coerceDayCount(d.reg.dayCount) },
         log: Array.isArray(d.log) ? d.log : [],
       },
       ui: {

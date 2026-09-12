@@ -171,7 +171,8 @@ export function RecalcHelp() {
               Calculation results is the independent measurement. Inflation and the
               FY year end in the header apply to every obligation. The discount
               rate is looked up on the curve at each obligation&apos;s term, rounded
-              up to the next whole year. Day count is Excel DAYS360 / 360.
+              up to the next whole year. Day count is chosen in the assumptions
+              library (default Excel DAYS360 / 360).
             </p>
             <p>
               Seeded demo obligations are there so the screen is not empty. Import
