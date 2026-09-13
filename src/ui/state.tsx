@@ -19,7 +19,13 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { RecalcRegister, emptyRecalcRegister, normalizeInflationPolicies, normalizeWorksheet } from '../core/recalc';
+import {
+  RecalcRegister,
+  emptyRecalcRegister,
+  normalizeInflationPolicies,
+  normalizeWorksheet,
+  normalizeWorksheetAssumptions,
+} from '../core/recalc';
 import { seededRecalcRegister } from '../core/seed';
 import { FIRST_STEP, resolveScreen } from './nav';
 import { coerceDayCount } from '../engine/dates';
@@ -99,6 +105,7 @@ function load(): Persisted {
           dayCount: coerceDayCount(d.reg.dayCount),
           inflationPolicies: normalizeInflationPolicies(d.reg.inflationPolicies),
           worksheet: normalizeWorksheet(d.reg.worksheet),
+          worksheetAssumptions: normalizeWorksheetAssumptions(d.reg.worksheetAssumptions),
         },
         log: Array.isArray(d.log) ? d.log : [],
       },

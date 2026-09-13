@@ -239,7 +239,7 @@ export function RecalcAssumptions() {
         <Block
           kicker="Inflation policy"
           title="Applies to every obligation"
-          note="Edit the named options here. Set applies that rate to every obligation, including the single-obligation calculator. That rate is also editable on Single obligation — both write the same assumption."
+          note="Edit the named options here. Set applies that rate to every obligation in the register, and to the single-obligation calculator unless that page has been given a rate of its own. A rate typed on Single obligation stays there and never moves this library."
           actions={
             <button
               className="btn btn-ghost btn-sm"

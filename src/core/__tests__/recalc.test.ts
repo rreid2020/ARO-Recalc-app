@@ -9,12 +9,15 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILT_IN_CURVE,
   RecalcRegister,
-  applyInflation,
   completeness,
   defaultInflationPolicies,
   emptyRecalcRegister,
   normalizeInflationPolicies,
   normalizeWorksheet,
+  normalizeWorksheetAssumptions,
+  clearWorksheetAssumptions,
+  patchWorksheetAssumptions,
+  worksheetSettingsOf,
   curveInForce,
   exceptions,
   mergeRep04,
@@ -389,13 +392,6 @@ describe('inflation policy options', () => {
     expect(kept).toEqual([{ id: 'mine', label: 'Client CPI', basis: 'FY26', rate: 0.018 }]);
   });
 
-  it('moves the in-use option when the live inflation rate is edited', () => {
-    const policies = defaultInflationPolicies();
-    const next = applyInflation(policies, 0.02, 0.0225);
-    expect(next.inflation).toBe(0.0225);
-    expect(next.inflationPolicies.find((p) => p.id === 'base')?.rate).toBe(0.0225);
-    expect(next.inflationPolicies.find((p) => p.id === 'cpi')?.rate).toBe(0.025);
-  });
 });
 
 describe('the single-obligation worksheet', () => {
@@ -432,5 +428,70 @@ describe('the single-obligation worksheet', () => {
     expect(cell('A12')?.value).not.toBe('—');
     expect(cell('A15')?.value).toBe(varianceFlag(s.pv - k.pv, s.pv, reg.materiality));
     expect(worksheetOf(reg).id).toBe('WS-1');
+  });
+});
+
+describe("the single obligation's own assumptions", () => {
+  it('follows the register while nothing on the page has been changed', () => {
+    const reg = clean({ fyEnd: '2026-03-31', inflation: 0.02, dayCount: 'Actual/365' });
+    const settings = worksheetSettingsOf(reg);
+
+    expect(settings.assumptions).toEqual({ fyEnd: '2026-03-31', inflation: 0.02, dayCount: 'Actual/365' });
+    expect(settings.materiality).toEqual(reg.materiality);
+    expect(settings.anyLocal).toBe(false);
+  });
+
+  it('keeps a changed assumption on the single obligation and off the register', () => {
+    const reg = clean({ inflation: 0.02, materiality: { usd: 1000, pct: 0.1 } });
+    const before = portfolioTotals(reg);
+    const after: RecalcRegister = {
+      ...reg,
+      ...patchWorksheetAssumptions(reg, { inflation: 0.031, fyEnd: '2027-03-31', materialityUsd: 0 }),
+    };
+    const settings = worksheetSettingsOf(after);
+
+    expect(settings.assumptions.inflation).toBe(0.031);
+    expect(settings.assumptions.fyEnd).toBe('2027-03-31');
+    expect(settings.materiality).toEqual({ usd: 0, pct: 0.1 });
+    expect(settings.local).toEqual({
+      fyEnd: true,
+      inflation: true,
+      dayCount: false,
+      materialityUsd: true,
+      materialityPct: false,
+    });
+
+    // The register itself, and therefore every extract row, is untouched.
+    expect(after.inflation).toBe(0.02);
+    expect(after.fyEnd).toBe(reg.fyEnd);
+    expect(after.materiality).toEqual({ usd: 1000, pct: 0.1 });
+    expect(portfolioTotals(after)).toEqual(before);
+    expect(exceptions(after).items.map((i) => i.id)).toEqual(exceptions(reg).items.map((i) => i.id));
+  });
+
+  it('hands one assumption, or all of them, back to the register', () => {
+    const reg = clean({
+      ...patchWorksheetAssumptions({}, { inflation: 0.031, dayCount: 'Actual/360' }),
+    });
+
+    const one = { ...reg, ...patchWorksheetAssumptions(reg, { inflation: undefined }) };
+    expect(worksheetSettingsOf(one).assumptions).toEqual({
+      fyEnd: reg.fyEnd,
+      inflation: reg.inflation,
+      dayCount: 'Actual/360',
+    });
+
+    const all = { ...reg, ...clearWorksheetAssumptions() };
+    expect(worksheetSettingsOf(all).anyLocal).toBe(false);
+    expect(worksheetSettingsOf(all).assumptions.dayCount).toBe('30/360 US (DAYS360)');
+  });
+
+  it('drops a stored override that is not a usable assumption', () => {
+    expect(normalizeWorksheetAssumptions(undefined)).toEqual({});
+    expect(normalizeWorksheetAssumptions({ fyEnd: '', inflation: 'x', dayCount: 'Actual/999' })).toEqual({});
+    expect(normalizeWorksheetAssumptions({ materialityUsd: -500, materialityPct: -0.2 })).toEqual({
+      materialityUsd: 500,
+      materialityPct: 0.2,
+    });
   });
 });

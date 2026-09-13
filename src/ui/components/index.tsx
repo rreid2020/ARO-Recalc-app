@@ -72,7 +72,7 @@ export function Tag({ kind = 'neutral', children }: { kind?: 'accent' | 'neutral
 
 export function Field({
   label, help, children, hint,
-}: { label: string; help?: string; children: React.ReactNode; hint?: string }) {
+}: { label: string; help?: string; children: React.ReactNode; hint?: React.ReactNode }) {
   const [pinned, setPinned] = useState(false);
   return (
     <div className="field">

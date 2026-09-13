@@ -24,7 +24,7 @@ import {
   varianceFlag,
 } from '../engine/recalc';
 import { money } from './format';
-import { DayCount, DEFAULT_DAY_COUNT, coerceDayCount } from '../engine/dates';
+import { DAY_COUNTS, DayCount, DEFAULT_DAY_COUNT, coerceDayCount } from '../engine/dates';
 
 /** A named inflation option the user can edit and apply from the assumptions library. */
 export interface InflationPolicy {
@@ -61,26 +61,6 @@ export function normalizeInflationPolicies(raw: unknown): InflationPolicy[] {
 
 export function inflationPoliciesOf(reg: Pick<RecalcRegister, 'inflationPolicies'>): InflationPolicy[] {
   return normalizeInflationPolicies(reg.inflationPolicies);
-}
-
-/**
- * Apply a live inflation rate and keep the matching named option in step.
- *
- * The assumptions library and the single-obligation calculator both write
- * `inflation`; when a named option currently matches, its rate moves with it
- * so "In use" does not silently point at a stale figure.
- */
-export function applyInflation(
-  policies: InflationPolicy[] | undefined,
-  current: number,
-  next: number,
-): { inflation: number; inflationPolicies: InflationPolicy[] } {
-  const list = normalizeInflationPolicies(policies);
-  const idx = list.findIndex((p) => Math.abs(p.rate - current) < 1e-12);
-  return {
-    inflation: next,
-    inflationPolicies: idx >= 0 ? list.map((p, i) => (i === idx ? { ...p, rate: next } : p)) : list,
-  };
 }
 
 /** An empty scratch obligation — dates blank, source figures unset. */
@@ -126,6 +106,110 @@ export function normalizeWorksheet(raw: unknown): RecalcRow {
 
 export function worksheetOf(reg: Pick<RecalcRegister, 'worksheet'>): RecalcRow {
   return normalizeWorksheet(reg.worksheet);
+}
+
+/* ══ The single obligation's own assumptions ═══════════════════════════ */
+
+/**
+ * Assumptions the single-obligation calculator holds for itself.
+ *
+ * The scratch obligation is not part of the extract population, and neither are
+ * the rates it is priced on: an assumption changed on that page applies to that
+ * one obligation and to nothing else. Pricing one row off-curve, on a different
+ * year end, or against a tighter materiality is exactly what the page is for, and
+ * none of it should silently remeasure a register somebody is about to sign.
+ *
+ * A field left unset follows the register, so a page nobody has touched opens on
+ * the assumptions in force and moves with them.
+ */
+export interface WorksheetAssumptions {
+  fyEnd?: string;
+  /** Inflation / escalation, decimal. */
+  inflation?: number;
+  dayCount?: DayCount;
+  /** Absolute materiality threshold, currency units. */
+  materialityUsd?: number;
+  /** Relative materiality threshold, percent. */
+  materialityPct?: number;
+}
+
+export type WorksheetAssumptionKey = keyof WorksheetAssumptions;
+
+/** Stored overrides, with anything unusable dropped back to the register. */
+export function normalizeWorksheetAssumptions(raw: unknown): WorksheetAssumptions {
+  if (!raw || typeof raw !== 'object') return {};
+  const o = raw as Record<string, unknown>;
+  const out: WorksheetAssumptions = {};
+  const fyEnd = String(o.fyEnd ?? '').trim();
+  if (fyEnd) out.fyEnd = fyEnd;
+  const inflation = finiteOrNull(o.inflation);
+  if (inflation !== null) out.inflation = inflation;
+  if (DAY_COUNTS.includes(o.dayCount as DayCount)) out.dayCount = o.dayCount as DayCount;
+  const usd = finiteOrNull(o.materialityUsd);
+  if (usd !== null) out.materialityUsd = Math.abs(usd);
+  const pct = finiteOrNull(o.materialityPct);
+  if (pct !== null) out.materialityPct = Math.abs(pct);
+  return out;
+}
+
+export interface WorksheetSettings {
+  /** What the single obligation is actually priced on. */
+  assumptions: RecalcAssumptions & { dayCount: DayCount };
+  /** The thresholds its variance is tested against. */
+  materiality: Materiality;
+  /** Which assumptions the page holds itself rather than reading off the register. */
+  local: Record<WorksheetAssumptionKey, boolean>;
+  /** True when at least one of them is the page's own. */
+  anyLocal: boolean;
+}
+
+/** The assumptions in force on the single-obligation page. */
+export function worksheetSettingsOf(
+  reg: Pick<RecalcRegister, 'fyEnd' | 'inflation' | 'dayCount' | 'materiality' | 'worksheetAssumptions'>,
+): WorksheetSettings {
+  const own = normalizeWorksheetAssumptions(reg.worksheetAssumptions);
+  const local = {
+    fyEnd: own.fyEnd !== undefined,
+    inflation: own.inflation !== undefined,
+    dayCount: own.dayCount !== undefined,
+    materialityUsd: own.materialityUsd !== undefined,
+    materialityPct: own.materialityPct !== undefined,
+  };
+  return {
+    assumptions: {
+      fyEnd: own.fyEnd ?? reg.fyEnd,
+      inflation: own.inflation ?? reg.inflation,
+      dayCount: coerceDayCount(own.dayCount ?? reg.dayCount),
+    },
+    materiality: {
+      usd: own.materialityUsd ?? reg.materiality.usd,
+      pct: own.materialityPct ?? reg.materiality.pct,
+    },
+    local,
+    anyLocal: Object.values(local).some(Boolean),
+  };
+}
+
+/**
+ * A register write that changes the single obligation's assumptions and nothing
+ * else. A field set to `undefined` is handed back to the register.
+ */
+export function patchWorksheetAssumptions(
+  reg: Pick<RecalcRegister, 'worksheetAssumptions'>,
+  patch: WorksheetAssumptions,
+): Pick<RecalcRegister, 'worksheetAssumptions'> {
+  const merged: WorksheetAssumptions = { ...normalizeWorksheetAssumptions(reg.worksheetAssumptions) };
+  if ('fyEnd' in patch) merged.fyEnd = patch.fyEnd;
+  if ('inflation' in patch) merged.inflation = patch.inflation;
+  if ('dayCount' in patch) merged.dayCount = patch.dayCount;
+  if ('materialityUsd' in patch) merged.materialityUsd = patch.materialityUsd;
+  if ('materialityPct' in patch) merged.materialityPct = patch.materialityPct;
+  return { worksheetAssumptions: normalizeWorksheetAssumptions(merged) };
+}
+
+/** Hand every assumption back to the register. */
+export function clearWorksheetAssumptions(): Pick<RecalcRegister, 'worksheetAssumptions'> {
+  return { worksheetAssumptions: {} };
 }
 
 /* ══ The built-in curve ════════════════════════════════════════════════ */
@@ -185,6 +269,11 @@ export interface RecalcRegister {
    * typing one figure does not enter the extract population or the exceptions.
    */
   worksheet?: RecalcRow;
+  /**
+   * Assumptions that page changed for that obligation alone. Empty while it is
+   * pricing on the register's own year end, inflation, day count and materiality.
+   */
+  worksheetAssumptions?: WorksheetAssumptions;
   /** True while the register still holds illustrative rows rather than an extract. */
   seeded: boolean;
   /** Who concluded on the variance analysis, or null while it is outstanding. */
@@ -212,6 +301,7 @@ export function emptyRecalcRegister(fyEnd: string): RecalcRegister {
     rep06: null,
     trialBalancePv: null,
     worksheet: emptyWorksheet(),
+    worksheetAssumptions: {},
     seeded: false,
     signedOff: null,
   };

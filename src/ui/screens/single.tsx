@@ -2,17 +2,25 @@
  * Single-obligation calculator — one page for assumptions, inputs, results,
  * external-source variance, and the calculation that produced the figures.
  *
- * The arithmetic is the same chain as Calculation results. The scratch row
- * lives on `reg.worksheet`, not in the extract population.
+ * The arithmetic is the same chain as Calculation results. The scratch row lives
+ * on `reg.worksheet`, not in the extract population — and so do the assumptions
+ * it is priced on: an assumption changed here is written to
+ * `reg.worksheetAssumptions` and applies to this obligation alone. A field that
+ * has not been changed follows the register.
  */
 
 import React, { useState } from 'react';
 import { useRegister } from '../state';
 import {
-  applyInflation,
+  RecalcRegister,
+  WorksheetAssumptions,
+  WorksheetSettings,
+  clearWorksheetAssumptions,
   curveInForce,
   emptyWorksheet,
+  patchWorksheetAssumptions,
   worksheetOf,
+  worksheetSettingsOf,
 } from '../../core/recalc';
 import { formulasFor } from '../../core/recalcFormulas';
 import { money, parseNumber } from '../../core/format';
@@ -55,16 +63,18 @@ export function RecalcSingle() {
     return n;
   });
 
-  const inflation = livePct(draft, 'infl', reg.inflation);
-  const fyEnd = draft.fyEnd ?? reg.fyEnd;
+  const settings = worksheetSettingsOf(reg);
+  const own = settings.assumptions;
+  const inflation = livePct(draft, 'infl', own.inflation);
+  const fyEnd = draft.fyEnd ?? own.fyEnd;
   const a: RecalcAssumptions = {
     fyEnd,
     inflation,
-    dayCount: coerceDayCount(reg.dayCount),
+    dayCount: own.dayCount,
   };
   const materiality = {
-    usd: liveAbs(draft, 'mu', reg.materiality.usd),
-    pct: liveAbs(draft, 'mp', reg.materiality.pct),
+    usd: liveAbs(draft, 'mu', settings.materiality.usd),
+    pct: liveAbs(draft, 'mp', settings.materiality.pct),
   };
   const row = liveRow(stored, draft);
   const curve = curveInForce(reg);
@@ -84,18 +94,54 @@ export function RecalcSingle() {
     saveRow({ ...stored, ...partial }, action);
   };
 
+  /** Write an assumption for this obligation only. `undefined` follows the register again. */
+  const setOwn = (partial: WorksheetAssumptions, action: string) =>
+    set(action, patchWorksheetAssumptions(reg, partial), stored.id || undefined);
+
+  /** "Local to this obligation" and a way back to the register's figure. */
+  const localHint = (label: string, registerValue: string, partial: WorksheetAssumptions) => (
+    <>
+      This obligation only. The register uses {registerValue}.{' '}
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        onClick={() => { setDraft({}); setOwn(partial, `Follow the register ${label} on the single obligation`); }}
+        style={{ minHeight: 20, padding: '0 6px', fontSize: 10.5 }}
+      >
+        Use register
+      </button>
+    </>
+  );
+
   return (
     <div data-tour="tour-single">
       <Block
         kicker="Single obligation"
         title="Assumptions, inputs, PV and FV"
-        note="The same chain the extract workflow uses — escalate the cost estimate to the year end, escalate again to settlement, discount back — on one page. The register's inflation, year end, day count and materiality are the ones used here, so a change on this page applies everywhere."
+        note="The same chain the extract workflow uses — escalate the cost estimate to the year end, escalate again to settlement, discount back — on one page. The assumptions start from the register's year end, inflation, day count and materiality, but they belong to this obligation: change one here and it applies to this calculation only, never to the register or the extract population."
         actions={
           <>
+            {settings.anyLocal && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setDraft({});
+                  set('Follow the register assumptions on the single obligation', clearWorksheetAssumptions(), stored.id || undefined);
+                }}
+              >
+                Use register assumptions
+              </button>
+            )}
             <button className="btn btn-secondary btn-sm" onClick={() => { setDraft({}); saveRow({ ...SEED_ROWS[0] }, 'Load example obligation'); }}>
               Load example
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setDraft({}); saveRow(emptyWorksheet(), 'Clear single obligation'); }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setDraft({});
+                set('Clear single obligation', { worksheet: emptyWorksheet(), ...clearWorksheetAssumptions() });
+              }}
+            >
               Clear
             </button>
             {reg.rows.length > 0 && (
@@ -120,45 +166,65 @@ export function RecalcSingle() {
           </>
         }
       >
-        <div className="kicker" style={{ marginBottom: 8 }}>Assumptions</div>
+        <div className="kicker" style={{ marginBottom: 8 }}>Assumptions — this obligation only</div>
         <div style={{ ...GRID, marginBottom: 22 }}>
-          <Field label="FY year end (valuation date)" help="The reporting unit's financial year end. Every term is measured from or to this date.">
+          <Field
+            label="FY year end (valuation date)"
+            help="The financial year end this obligation is measured at. Every term is measured from or to this date. Changing it here does not move the register's year end."
+            hint={settings.local.fyEnd ? localHint('year end', reg.fyEnd, { fyEnd: undefined }) : undefined}
+          >
             <input
               className="input"
               type="date"
               autoComplete="off"
-              value={dv('fyEnd', reg.fyEnd)}
+              value={dv('fyEnd', own.fyEnd)}
               onChange={(e) => setDraft((d) => ({ ...d, fyEnd: e.target.value }))}
               onBlur={(e) => {
                 commit('fyEnd');
-                if (e.target.value && e.target.value !== reg.fyEnd) set('Set FY year end', { fyEnd: e.target.value });
+                const next = e.target.value;
+                if (!next || next === own.fyEnd) return;
+                setOwn({ fyEnd: next === reg.fyEnd ? undefined : next }, 'Set FY year end for the single obligation');
               }}
               style={{ fontVariantNumeric: 'tabular-nums' }}
             />
           </Field>
           <Field
             label="Inflation / escalation (%)"
-            help="One rate, applied to every obligation. Editing it here also updates the named option currently in use in the assumptions library."
+            help="The escalation rate applied to this obligation. The register's rate and the named options in the assumptions library are left alone."
+            hint={settings.local.inflation ? localHint('inflation rate', `${(reg.inflation * 100).toFixed(2)}%`, { inflation: undefined }) : undefined}
           >
             <input
               className="input num"
               inputMode="decimal"
               autoComplete="off"
-              value={dv('infl', (reg.inflation * 100).toFixed(2))}
+              value={dv('infl', (own.inflation * 100).toFixed(2))}
               onChange={(e) => setDraft((d) => ({ ...d, infl: e.target.value }))}
               onBlur={(e) => {
                 commit('infl');
                 const rate = parseNumber(e.target.value) / 100;
-                if (!Number.isFinite(rate) || Math.abs(rate - reg.inflation) < 1e-12) return;
-                set('Set inflation rate', applyInflation(reg.inflationPolicies, reg.inflation, rate));
+                if (!Number.isFinite(rate) || Math.abs(rate - own.inflation) < 1e-12) return;
+                setOwn(
+                  { inflation: Math.abs(rate - reg.inflation) < 1e-12 ? undefined : rate },
+                  'Set inflation rate for the single obligation',
+                );
               }}
             />
           </Field>
-          <Field label="Day count" help="Year-fraction convention for every term: cost estimate date to year end, modified date to settlement, and year end to settlement for discounting.">
+          <Field
+            label="Day count"
+            help="Year-fraction convention for this obligation's terms: cost estimate date to year end, modified date to settlement, and year end to settlement for discounting. The register keeps its own convention."
+            hint={settings.local.dayCount ? localHint('day count', coerceDayCount(reg.dayCount), { dayCount: undefined }) : undefined}
+          >
             <select
               className="input"
               value={dayCount}
-              onChange={(e) => set('Set day count', { dayCount: coerceDayCount(e.target.value) })}
+              onChange={(e) => {
+                const next = coerceDayCount(e.target.value);
+                setOwn(
+                  { dayCount: next === coerceDayCount(reg.dayCount) ? undefined : next },
+                  'Set day count for the single obligation',
+                );
+              }}
               style={{ fontFamily: 'var(--font-heading)', fontWeight: 800 }}
             >
               {DAY_COUNTS.map((c) => (
@@ -193,37 +259,58 @@ export function RecalcSingle() {
               }}
             />
           </Field>
-          <Field label="Materiality — absolute" help="A PV difference larger than this is flagged, whatever it is a proportion of. 0 flags any difference at all.">
+          <Field
+            label="Materiality — absolute"
+            help="A PV difference on this obligation larger than this is flagged, whatever it is a proportion of. 0 flags any difference at all. The register's threshold is unchanged."
+            hint={settings.local.materialityUsd ? localHint('absolute materiality', String(reg.materiality.usd), { materialityUsd: undefined }) : undefined}
+          >
             <input
               className="input num"
               inputMode="decimal"
               autoComplete="off"
-              value={dv('mu', String(reg.materiality.usd))}
+              value={dv('mu', String(settings.materiality.usd))}
               onChange={(e) => setDraft((d) => ({ ...d, mu: e.target.value }))}
               onBlur={(e) => {
                 commit('mu');
                 const usd = Math.abs(parseNumber(e.target.value));
-                if (!Number.isFinite(usd) || usd === reg.materiality.usd) return;
-                set('Set absolute materiality', { materiality: { ...reg.materiality, usd } });
+                if (!Number.isFinite(usd) || usd === settings.materiality.usd) return;
+                setOwn(
+                  { materialityUsd: usd === reg.materiality.usd ? undefined : usd },
+                  'Set absolute materiality for the single obligation',
+                );
               }}
             />
           </Field>
-          <Field label="Materiality — relative %" help="A PV difference larger than this share of the reported balance is flagged. Either threshold breaching is enough.">
+          <Field
+            label="Materiality — relative %"
+            help="A PV difference larger than this share of the reported balance is flagged. Either threshold breaching is enough. Applies to this obligation only."
+            hint={settings.local.materialityPct ? localHint('relative materiality', `${reg.materiality.pct}%`, { materialityPct: undefined }) : undefined}
+          >
             <input
               className="input num"
               inputMode="decimal"
               autoComplete="off"
-              value={dv('mp', String(reg.materiality.pct))}
+              value={dv('mp', String(settings.materiality.pct))}
               onChange={(e) => setDraft((d) => ({ ...d, mp: e.target.value }))}
               onBlur={(e) => {
                 commit('mp');
                 const pct = Math.abs(parseNumber(e.target.value));
-                if (!Number.isFinite(pct) || pct === reg.materiality.pct) return;
-                set('Set relative materiality', { materiality: { ...reg.materiality, pct } });
+                if (!Number.isFinite(pct) || pct === settings.materiality.pct) return;
+                setOwn(
+                  { materialityPct: pct === reg.materiality.pct ? undefined : pct },
+                  'Set relative materiality for the single obligation',
+                );
               }}
             />
           </Field>
         </div>
+
+        {settings.anyLocal && (
+          <p className="muted" style={{ fontSize: 12.5, margin: '-14px 0 20px' }}>
+            The header strip shows the register&apos;s assumptions, which are unchanged. This obligation is priced on{' '}
+            {localDifferences(settings, reg).join(', ')}.
+          </p>
+        )}
 
         <div className="kicker" style={{ marginBottom: 8 }}>Obligation</div>
         <div style={{ ...GRID, marginBottom: 22 }}>
@@ -445,6 +532,21 @@ export function RecalcSingle() {
 
 function near(x: number, y: number) {
   return Math.abs(x - y) < 0.000005;
+}
+
+/** The assumptions this page holds itself, written out for the reader. */
+function localDifferences(settings: WorksheetSettings, reg: RecalcRegister): string[] {
+  const out: string[] = [];
+  if (settings.local.fyEnd) out.push(`a year end of ${settings.assumptions.fyEnd} rather than ${reg.fyEnd}`);
+  if (settings.local.inflation)
+    out.push(`inflation of ${(settings.assumptions.inflation * 100).toFixed(2)}% rather than ${(reg.inflation * 100).toFixed(2)}%`);
+  if (settings.local.dayCount)
+    out.push(`${settings.assumptions.dayCount} rather than ${coerceDayCount(reg.dayCount)}`);
+  if (settings.local.materialityUsd)
+    out.push(`absolute materiality of ${money(settings.materiality.usd)} rather than ${money(reg.materiality.usd)}`);
+  if (settings.local.materialityPct)
+    out.push(`relative materiality of ${settings.materiality.pct}% rather than ${reg.materiality.pct}%`);
+  return out;
 }
 
 function sameOpt(a: number | null, b: number | null) {

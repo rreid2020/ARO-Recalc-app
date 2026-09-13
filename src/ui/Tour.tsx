@@ -57,7 +57,7 @@ export const TOUR_STEPS: TourStop[] = [
     target: 'tour-single',
     screen: 'recalc-single',
     title: 'One obligation, no extracts',
-    body: 'Set assumptions, enter the cost and dates, optionally FV and PV from an external source, and read CCE, FV, PV, the variance and the calculation underneath. Load example or copy a register row. Inflation and year end edited here apply everywhere.',
+    body: 'Set assumptions, enter the cost and dates, optionally FV and PV from an external source, and read CCE, FV, PV, the variance and the calculation underneath. Load example or copy a register row. The assumptions here belong to this obligation — change one and the register is untouched.',
   },
   {
     target: 'tour-results',

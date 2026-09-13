@@ -124,7 +124,8 @@ export function RecalcHelp() {
             <ol className="help-steps">
               <li>
                 <strong>One obligation.</strong> Open Single obligation. Set
-                inflation, the year end and the day count. Enter the cost estimate
+                inflation, the year end and the day count for that obligation —
+                nothing there touches the register. Enter the cost estimate
                 and dates. Optionally enter FV and PV an external source reported.
                 Read CCE, FV, PV, the variance and the calculation underneath.
               </li>
@@ -199,8 +200,12 @@ export function RecalcHelp() {
                 <strong>Assumptions</strong> — FY year end, inflation %, day
                 count, optional discount rate override, materiality $ and %.
                 Blank discount rate looks the curve up at the rounded-up term.
-                Inflation and year end edited here are the register&apos;s rates,
-                not a private copy.
+                Each of these applies to this obligation alone: they open on the
+                register&apos;s figures and follow them until you change one, and a
+                change here is never written back to the register, the assumptions
+                library or the extract population. Fields you have changed say so
+                and offer Use register; Use register assumptions puts all of them
+                back at once.
               </li>
               <li>
                 <strong>Obligation</strong> — optional number, cost estimate,
@@ -222,9 +227,10 @@ export function RecalcHelp() {
             </ul>
             <p>
               Load example fills the first seeded obligation. Copy from register
-              pulls an imported row into this scratch pad. Clear empties it. The
-              scratch pad is not an extract row: typing here does not add an
-              obligation to the population or the exception list.
+              pulls an imported row into this scratch pad. Clear empties it and
+              hands the assumptions back to the register. The scratch pad is not an
+              extract row: typing here does not add an obligation to the population
+              or the exception list.
             </p>
           </section>
 
@@ -463,10 +469,10 @@ export function RecalcHelp() {
             </p>
             <p>
               Named inflation options are edited in the table — curve name,
-              basis and rate. Set applies that rate to every obligation,
-              including Single obligation. Add option / Remove keep the library
-              yours. The In use row is whichever rate currently matches the
-              live inflation.
+              basis and rate. Set applies that rate to every obligation in the
+              register, and to Single obligation unless that page has been given a
+              rate of its own. Add option / Remove keep the library yours. The In
+              use row is whichever rate currently matches the live inflation.
             </p>
             <p>
               The interest rate curve is listed with how many obligations hit
@@ -567,11 +573,18 @@ export function RecalcHelp() {
             </p>
             <h3>Does Single obligation change the extract?</h3>
             <p>
-              No. It is a scratch calculation. Changing inflation or the year
-              end there does change the register&apos;s assumptions, because
-              there is only one set. The cost, dates and source figures you type
-              on that page stay on that page unless you are editing the extract
+              No. It is a scratch calculation, and that now includes its
+              assumptions: the year end, inflation, day count and materiality you
+              set there apply to that one obligation, so the register&apos;s
+              assumptions, its totals and its exceptions do not move. The cost,
+              dates and source figures stay on that page too — edit the extract
               itself on Calculation results.
+            </p>
+            <p>
+              Until you change one, each assumption follows the register, so the
+              page opens on the figures in force. A changed field is labelled and
+              can be handed back with Use register, or all of them at once with Use
+              register assumptions.
             </p>
             <h3>Why is the discount rate not a column I can type?</h3>
             <p>
