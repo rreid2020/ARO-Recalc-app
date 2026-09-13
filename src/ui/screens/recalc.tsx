@@ -27,6 +27,7 @@ import {
   withFile,
 } from '../../core/recalc';
 import {
+  MONEY_FIELDS,
   PREVIEW_FIELDS,
   StagedExtract,
   curveFromStage,
@@ -37,7 +38,7 @@ import {
   vintagesOf,
 } from '../../core/recalcImport';
 import { formulasFor } from '../../core/recalcFormulas';
-import { money, parseNumber } from '../../core/format';
+import { money, moneyField, parseNumber } from '../../core/format';
 import { coerceDayCount } from '../../engine/dates';
 import {
   RecalcRow,
@@ -351,9 +352,13 @@ export function RecalcSource() {
   const snap = list[Math.min(sel, Math.max(0, list.length - 1))] ?? null;
 
   const roleAt: Record<number, string> = {};
+  const keyAt: Record<number, string> = {};
   if (snap) {
     for (const [key, i] of Object.entries(snap.map)) {
-      if (i >= 0) roleAt[i] = PREVIEW_FIELDS[snap.kind].find((f) => f.key === key)?.label ?? key;
+      if (i >= 0) {
+        keyAt[i] = key;
+        roleAt[i] = PREVIEW_FIELDS[snap.kind].find((f) => f.key === key)?.label ?? key;
+      }
     }
   }
 
@@ -419,9 +424,14 @@ export function RecalcSource() {
                 {snap.rows.slice(0, 200).map((row, j) => (
                   <tr key={j}>
                     <td className="num muted">{num(j + 1)}</td>
-                    {snap.headers.map((_, i) => (
-                      <td key={i} className={roleAt[i] ? undefined : 'muted'}>{String(row[i] ?? '').trim() || '—'}</td>
-                    ))}
+                    {snap.headers.map((_, i) => {
+                      const raw = String(row[i] ?? '').trim();
+                      const key = keyAt[i];
+                      const n = MONEY_FIELDS.has(key) ? parseNumber(raw) : NaN;
+                      const shown = raw && Number.isFinite(n) ? money(n) : (raw || '—');
+                      const cls = MONEY_FIELDS.has(key) ? 'num' : roleAt[i] ? undefined : 'muted';
+                      return <td key={i} className={cls}>{shown}</td>;
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -586,7 +596,7 @@ export function Recalculation() {
             {
               key: 'cost', header: 'Cost estimate', kind: 'number', thClassName: 'num', value: (r) => r.cost,
               cell: (r) => (
-                <input className="input" value={dv(`cost:${r.id}`, r.cost ? String(r.cost) : '')} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                <input className="input" value={moneyField(draft, `cost:${r.id}`, r.cost, true)} style={{ ...cell, width: 136, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`cost:${r.id}`]: e.target.value }))}
                   onBlur={(e) => { commit(`cost:${r.id}`); patch(r.id, { cost: parseNumber(e.target.value) }, 'Set cost estimate'); }} />
               ),
@@ -594,7 +604,7 @@ export function Recalculation() {
             {
               key: 'sapFv', header: 'FV reported', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).fv,
               cell: (r) => (
-                <input className="input" value={dv(`sfv:${r.id}`, r.sourceFv == null ? '' : String(r.sourceFv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                <input className="input" value={moneyField(draft, `sfv:${r.id}`, r.sourceFv)} style={{ ...cell, width: 136, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`sfv:${r.id}`]: e.target.value }))}
                   onBlur={(e) => {
                     commit(`sfv:${r.id}`);
@@ -606,7 +616,7 @@ export function Recalculation() {
             {
               key: 'sapPv', header: 'PV reported', kind: 'number', thClassName: 'num', value: (r) => sourceFigures(r).pv,
               cell: (r) => (
-                <input className="input" value={dv(`spv:${r.id}`, r.sourcePv == null ? '' : String(r.sourcePv))} style={{ ...cell, width: 126, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                <input className="input" value={moneyField(draft, `spv:${r.id}`, r.sourcePv)} style={{ ...cell, width: 136, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                   onChange={(e) => setDraft((d) => ({ ...d, [`spv:${r.id}`]: e.target.value }))}
                   onBlur={(e) => {
                     commit(`spv:${r.id}`);
@@ -701,8 +711,10 @@ export function RecalcCompare() {
           <Field label="Total ARO PV per the source trial balance"
             help="Your independent control total. Nothing is derived from it — it exists to prove the extract population is complete, because a perfect recalculation of half the balance still reads clean.">
             <input
-              value={dv('tb', reg.trialBalancePv === null ? '' : String(reg.trialBalancePv))}
-             
+              className="input num"
+              inputMode="decimal"
+              autoComplete="off"
+              value={moneyField(draft, 'tb', reg.trialBalancePv)}
               placeholder="not entered"
               onChange={(e) => setDraft((d) => ({ ...d, tb: e.target.value }))}
               onBlur={(e) => {
@@ -713,12 +725,20 @@ export function RecalcCompare() {
             />
           </Field>
           <Field label="Materiality — absolute" help="A difference larger than this is flagged, whatever it is a proportion of.">
-            <input value={dv('mu', String(reg.materiality.usd))}
+            <input
+              className="input num"
+              inputMode="decimal"
+              autoComplete="off"
+              value={moneyField(draft, 'mu', reg.materiality.usd)}
               onChange={(e) => setDraft((d) => ({ ...d, mu: e.target.value }))}
               onBlur={(e) => { commit('mu'); set('Set absolute materiality', { materiality: { ...reg.materiality, usd: Math.abs(parseNumber(e.target.value)) } }); }} />
           </Field>
           <Field label="Materiality — relative %" help="A difference larger than this share of the reported balance is flagged. Either threshold breaching is enough.">
-            <input value={dv('mp', String(reg.materiality.pct))}
+            <input
+              className="input num"
+              inputMode="decimal"
+              autoComplete="off"
+              value={dv('mp', String(reg.materiality.pct))}
               onChange={(e) => setDraft((d) => ({ ...d, mp: e.target.value }))}
               onBlur={(e) => { commit('mp'); set('Set relative materiality', { materiality: { ...reg.materiality, pct: Math.abs(parseNumber(e.target.value)) } }); }} />
           </Field>

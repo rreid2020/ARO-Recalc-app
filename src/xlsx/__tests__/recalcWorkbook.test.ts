@@ -227,7 +227,7 @@ describe('the formula panel', () => {
   it('states the materiality thresholds in the same units the register uses', () => {
     expect(at('A15').formula).toContain('>1000');
     expect(at('A15').formula).toContain('*100)>0.1');
-    expect(at('A15').label).toContain('1,000.00 / 0.1%');
+    expect(at('A15').label).toContain('$1,000.00 / 0.1%');
   });
 
   it('says which rate is in force when an override replaces the curve', () => {

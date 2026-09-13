@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currency, money, money2, num, parseNumber, pct, years } from '../format';
+import { currency, money, money2, moneyField, num, parseNumber, pct, years } from '../format';
 
 describe('number display', () => {
   it('formats currency with a symbol, commas and two decimals', () => {
@@ -12,10 +12,21 @@ describe('number display', () => {
     expect(currency(null, 'CAD')).toBe('—');
   });
 
-  it('formats money amounts with commas and two decimals', () => {
-    expect(money(5120000)).toBe('5,120,000.00');
-    expect(money2(166803.55)).toBe('166,803.55');
-    expect(money(12)).toBe('12.00');
+  it('formats money amounts as currency — a symbol, commas and two decimals', () => {
+    expect(money(5120000)).toBe('$5,120,000.00');
+    expect(money2(166803.55)).toBe('$166,803.55');
+    expect(money(12)).toBe('$12.00');
+    expect(money(-99.1)).toBe('-$99.10');
+    expect(money(0)).toBe('$0.00');
+    expect(money(null)).toBe('—');
+  });
+
+  it('shows a currency input as formatted until the user is typing', () => {
+    expect(moneyField({}, 'cost', 19546595.86)).toBe('$19,546,595.86');
+    expect(moneyField({ cost: '19' }, 'cost', 19546595.86)).toBe('19');
+    expect(moneyField({}, 'sfv', null)).toBe('');
+    expect(moneyField({}, 'cost', 0, true)).toBe('');
+    expect(moneyField({}, 'mu', 0)).toBe('$0.00');
   });
 
   it('formats other numbers with commas and decimals only when needed', () => {

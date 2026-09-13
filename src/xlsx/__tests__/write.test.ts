@@ -112,6 +112,11 @@ describe('xlsx writer', () => {
     expect(colName(701)).toBe('ZZ');
   });
 
+  it('formats money cells as currency, not as a plain grouped number', async () => {
+    const xml = (await unzip(build([sheet]))).get('xl/styles.xml')!;
+    expect(xml).toContain('formatCode="&quot;$&quot;#,##0.00"');
+  });
+
   it('omits empty cells rather than writing blanks', async () => {
     const xml = (await unzip(build([sheet]))).get('xl/worksheets/sheet1.xml')!;
     // Row 4 has a null in column B, so B4 must not appear at all.

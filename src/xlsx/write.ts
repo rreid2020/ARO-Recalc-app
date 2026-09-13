@@ -97,7 +97,7 @@ export const S = { plain: 0, date: 1, money: 2, rate: 3, head: 4, bold: 5, term:
 
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="4"><numFmt numFmtId="171" formatCode="yyyy\\-mm\\-dd"/><numFmt numFmtId="172" formatCode="#,##0.00"/><numFmt numFmtId="173" formatCode="0.00000"/><numFmt numFmtId="174" formatCode="0.0000"/></numFmts>
+<numFmts count="4"><numFmt numFmtId="171" formatCode="yyyy\\-mm\\-dd"/><numFmt numFmtId="172" formatCode="&quot;$&quot;#,##0.00"/><numFmt numFmtId="173" formatCode="0.00000"/><numFmt numFmtId="174" formatCode="0.0000"/></numFmts>
 <fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>
 <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEFEF"/><bgColor indexed="64"/></patternFill></fill></fills>
 <borders count="2"><border/><border><bottom style="medium"><color rgb="FF000000"/></bottom></border></borders>

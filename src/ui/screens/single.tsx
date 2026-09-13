@@ -23,7 +23,7 @@ import {
   worksheetSettingsOf,
 } from '../../core/recalc';
 import { formulasFor } from '../../core/recalcFormulas';
-import { money, parseNumber } from '../../core/format';
+import { money, moneyField, parseNumber } from '../../core/format';
 import { DAY_COUNTS, coerceDayCount, excelYearFraction, isThirty360 } from '../../engine/dates';
 import {
   Materiality,
@@ -262,13 +262,13 @@ export function RecalcSingle() {
           <Field
             label="Materiality — absolute"
             help="A PV difference on this obligation larger than this is flagged, whatever it is a proportion of. 0 flags any difference at all. The register's threshold is unchanged."
-            hint={settings.local.materialityUsd ? localHint('absolute materiality', String(reg.materiality.usd), { materialityUsd: undefined }) : undefined}
+            hint={settings.local.materialityUsd ? localHint('absolute materiality', money(reg.materiality.usd), { materialityUsd: undefined }) : undefined}
           >
             <input
               className="input num"
               inputMode="decimal"
               autoComplete="off"
-              value={dv('mu', String(settings.materiality.usd))}
+              value={moneyField(draft, 'mu', settings.materiality.usd)}
               onChange={(e) => setDraft((d) => ({ ...d, mu: e.target.value }))}
               onBlur={(e) => {
                 commit('mu');
@@ -331,7 +331,7 @@ export function RecalcSingle() {
               className="input num"
               inputMode="decimal"
               autoComplete="off"
-              value={dv('cost', stored.cost ? String(stored.cost) : '')}
+              value={moneyField(draft, 'cost', stored.cost, true)}
               onChange={(e) => setDraft((d) => ({ ...d, cost: e.target.value }))}
               onBlur={(e) => {
                 commit('cost');
@@ -382,7 +382,7 @@ export function RecalcSingle() {
               inputMode="decimal"
               autoComplete="off"
               placeholder="not entered"
-              value={dv('sfv', stored.sourceFv == null ? '' : String(stored.sourceFv))}
+              value={moneyField(draft, 'sfv', stored.sourceFv)}
               onChange={(e) => setDraft((d) => ({ ...d, sfv: e.target.value }))}
               onBlur={(e) => {
                 commit('sfv');
@@ -403,7 +403,7 @@ export function RecalcSingle() {
               inputMode="decimal"
               autoComplete="off"
               placeholder="not entered"
-              value={dv('spv', stored.sourcePv == null ? '' : String(stored.sourcePv))}
+              value={moneyField(draft, 'spv', stored.sourcePv)}
               onChange={(e) => setDraft((d) => ({ ...d, spv: e.target.value }))}
               onBlur={(e) => {
                 commit('spv');

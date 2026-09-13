@@ -14,7 +14,7 @@
 import { RecalcCurvePoint, normaliseCurveRates } from '../engine/recalc';
 import { ReadSheet, cellToIso } from '../xlsx/read';
 import { Rep04Line, Rep06Line } from './recalc';
-import { parseNumber } from './format';
+import { money, parseNumber } from './format';
 
 export interface StagedExtract {
   kind: 'rep04' | 'rep06' | 'curve';
@@ -169,7 +169,8 @@ export const PREVIEW_FIELDS: Record<StagedExtract['kind'], { key: string; label:
   ],
 };
 
-const DATE_FIELDS = new Set(['costEstimateDate', 'settlementDate']);
+export const DATE_FIELDS = new Set(['costEstimateDate', 'settlementDate']);
+export const MONEY_FIELDS = new Set(['cost', 'fv', 'pv']);
 
 /**
  * The first few rows as the mapping would read them.
@@ -198,6 +199,13 @@ export function previewRows(stage: StagedExtract, limit = 5): PreviewCell[][] {
       if (DATE_FIELDS.has(key)) {
         const iso = cellToIso(raw);
         return { shown: iso || '⚠ not a date', raw: iso && iso !== raw ? raw : '' };
+      }
+      if (MONEY_FIELDS.has(key)) {
+        const n = parseNumber(raw);
+        if (!raw) return { shown: '—', raw: '' };
+        if (!Number.isFinite(n)) return { shown: raw, raw: '' };
+        const shown = money(n);
+        return { shown, raw: shown !== raw ? raw : '' };
       }
       return { shown: raw || '—', raw: '' };
     }),

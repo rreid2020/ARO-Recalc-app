@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 
 export { SheetTable, SheetTh, SheetStatus, useSheet } from './Sheet';
 export type { SheetColumn } from './Sheet';
-export { currency, money, money2, num, parseNumber, pct, years } from '../../core/format';
+export { currency, money, money2, moneyField, num, parseNumber, pct, years } from '../../core/format';
 
 /* ── layout ─────────────────────────────────────────────────────────────── */
 export function Block({

@@ -50,14 +50,21 @@ export function num(n: number | null | undefined, maxDp = 6): string {
   return signed(neg, trimmed ? `${groupInt(int)}.${trimmed}` : groupInt(int));
 }
 
-/** Comma thousands and a fixed number of decimal places (default 2). */
-export function money(n: number | null | undefined, dp = 2): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+function groupedFixed(n: number, dp: number): string {
   const neg = n < 0 || Object.is(n, -0);
   const abs = Math.abs(n);
   const [int, frac] = abs.toFixed(dp).split('.');
   const body = dp > 0 ? `${groupInt(int)}.${frac}` : groupInt(int);
   return signed(neg, body);
+}
+
+/**
+ * Currency as this tool displays it: a dollar sign, comma thousands, two
+ * decimal places. The register is not multi-currency — `currency()` is the
+ * ISO-aware form when a code is known.
+ */
+export function money(n: number | null | undefined, dp = 2): string {
+  return currency(n, 'USD', dp);
 }
 
 export const money2 = (n: number | null | undefined) => money(n, 2);
@@ -73,11 +80,28 @@ export function currencySymbol(code: string): string {
 }
 
 export function currency(n: number | null | undefined, code: string, dp = 2): string {
-  const m = money(n, dp);
-  if (m === '—') return '—';
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  const m = groupedFixed(n, dp);
   const neg = m.startsWith('-');
   const body = neg ? m.slice(1) : m;
   return signed(neg, `${currencySymbol(code)}${body}`);
+}
+
+/**
+ * What a currency input shows: the live draft while typing, otherwise the
+ * committed amount in currency format. Null, non-finite, and (when asked) a
+ * zero are shown blank rather than `$0.00`, so an unset field stays empty.
+ */
+export function moneyField(
+  draft: Record<string, string>,
+  key: string,
+  n: number | null | undefined,
+  blankZero = false,
+): string {
+  if (draft[key] != null) return draft[key];
+  if (n === null || n === undefined || !Number.isFinite(n)) return '';
+  if (blankZero && n === 0) return '';
+  return money(n);
 }
 
 export const pct = (n: number, dp = 2) => `${num(n * 100, dp)}%`;

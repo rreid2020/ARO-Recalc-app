@@ -220,6 +220,15 @@ describe('the mapping preview', () => {
     expect(previewRows(unmapped)[0][1].shown).toBe('—');
   });
 
+  it('shows a cost estimate as currency, with the raw figure alongside when it differed', () => {
+    expect(previewRows(rep04)[0][1]).toEqual({ shown: '$19,546,595.86', raw: '19546595.86' });
+    const already = {
+      ...rep04,
+      sheet: sheet(rep04.sheet.headers.map((h) => h.label), [['A', '$20,004,539.42', '2026-03-31']]),
+    };
+    expect(previewRows(already)[0][1]).toEqual({ shown: '$20,004,539.42', raw: '' });
+  });
+
   it('previews a curve as the table it would import, not as raw rows', () => {
     const rows = previewRows({ ...curveStage([['31.03.2026', '1', '2.34']]), vintage: '31.03.2026' });
     expect(rows[0].map((c) => c.shown)).toEqual(['31.03.2026', '1', '2.34000%']);

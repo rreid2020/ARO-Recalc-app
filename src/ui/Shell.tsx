@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from './state';
 import { HELP_SCREEN, PHASES, STEPS, resolveScreen, stepById, stepNumber } from './nav';
 import { curveInForce, exceptions, portfolioTotals } from '../core/recalc';
-import { money, parseNumber } from '../core/format';
+import { money, moneyField, parseNumber } from '../core/format';
 import { AroWordmark } from './Logo';
 import { Screen } from './screens';
 import { Tour } from './Tour';
@@ -203,17 +203,16 @@ export function Shell() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div className="kicker">Materiality</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 15 }}>
-                  <span>$</span>
                   <input
                     className="input"
-                    value={dv('mu', String(state.reg.materiality.usd))}
+                    value={moneyField(draft, 'mu', state.reg.materiality.usd)}
                     onChange={(e) => setDraft((d) => ({ ...d, mu: e.target.value }))}
                     onBlur={(e) => {
                       commit('mu');
                       set('Set absolute materiality', { materiality: { ...state.reg.materiality, usd: Math.abs(parseNumber(e.target.value)) } });
                     }}
                     title="Absolute materiality — 0 flags any variance at all"
-                    style={{ width: 74, minHeight: 26, padding: '1px 5px', fontSize: 13.5, textAlign: 'right', fontFamily: 'var(--font-heading)', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}
+                    style={{ width: 108, minHeight: 26, padding: '1px 5px', fontSize: 13.5, textAlign: 'right', fontFamily: 'var(--font-heading)', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}
                   />
                   <span className="muted">/</span>
                   <input
